@@ -24,7 +24,7 @@ export default function HomePage() {
               <div className="w-7 h-7 bg-zinc-950 rounded-lg flex items-center justify-center text-white shadow-xs">
                 <GraduationCap className="w-4 h-4" />
               </div>
-              <span className="font-bold text-sm tracking-tight text-zinc-950">PlacementOS</span>
+              <span className="font-bold text-sm tracking-tight text-zinc-950">MMDU TNP</span>
             </Link>
             <span className="hidden sm:inline-flex text-[11px] font-medium text-zinc-400 border-l border-zinc-200 pl-3">
               v2.4
@@ -62,7 +62,7 @@ export default function HomePage() {
           {/* Badge Pill */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-700 text-xs font-medium shadow-2xs">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Built for College Placement Cells & University Career Offices</span>
+            <span>Built for MMDU Placement Cell</span>
           </div>
 
           {/* Heading */}
@@ -72,7 +72,7 @@ export default function HomePage() {
 
           {/* Subheading */}
           <p className="text-zinc-600 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-            PlacementOS is the dedicated operating system for university placement cells. Publish official drives, capture verified student application confirmations, and eliminate manual follow-ups.
+            MMDU TNP is the dedicated operating system for university placement cells. Publish official drives, capture verified student application confirmations, and eliminate manual follow-ups.
           </p>
 
           {/* CTA Buttons */}
@@ -120,31 +120,28 @@ export default function HomePage() {
             <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl border border-zinc-200/80 text-xs">
               <button
                 onClick={() => setActiveTab("apply")}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                  activeTab === "apply"
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${activeTab === "apply"
                     ? "bg-white text-zinc-950 shadow-2xs"
                     : "text-zinc-600 hover:text-zinc-950"
-                }`}
+                  }`}
               >
                 1. The 2-Step Apply Flow
               </button>
               <button
                 onClick={() => setActiveTab("followup")}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                  activeTab === "followup"
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${activeTab === "followup"
                     ? "bg-white text-zinc-950 shadow-2xs"
                     : "text-zinc-600 hover:text-zinc-950"
-                }`}
+                  }`}
               >
                 2. Admin Follow-up Queue
               </button>
               <button
                 onClick={() => setActiveTab("pipeline")}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                  activeTab === "pipeline"
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${activeTab === "pipeline"
                     ? "bg-white text-zinc-950 shadow-2xs"
                     : "text-zinc-600 hover:text-zinc-950"
-                }`}
+                  }`}
               >
                 3. Placement Pipeline
               </button>
@@ -163,7 +160,7 @@ export default function HomePage() {
                     How Students Apply & Confirm Their Participation
                   </h3>
                   <p className="text-xs text-zinc-600 leading-relaxed">
-                    Most companies require students to apply on their own portal, careers site, or Google Form. PlacementOS bridges that gap by decoupling the external application from internal tracking.
+                    Most companies require students to apply on their own portal, careers site, or Google Form. MMDU TNP bridges that gap by decoupling the external application from internal tracking.
                   </p>
 
                   <div className="space-y-3 pt-1 text-xs">
@@ -340,8 +337,8 @@ export default function HomePage() {
         {/* 4. Comparison Section: Before vs After */}
         <div id="comparison" className="space-y-6 pt-4">
           <div className="text-center space-y-1.5">
-            <h2 className="text-2xl font-bold tracking-tight text-zinc-950">Why Universities Switch to PlacementOS</h2>
-            <p className="text-xs text-zinc-500">Comparing manual methods with a unified campus placement OS</p>
+            <h2 className="text-2xl font-bold tracking-tight text-zinc-950">Why MMDU should switched to MMDU TNP</h2>
+            <p className="text-xs text-zinc-500">Comparing manual methods with a unified campus TNP</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
@@ -371,11 +368,11 @@ export default function HomePage() {
               </ul>
             </div>
 
-            {/* The PlacementOS Way */}
+            {/* The MMDU TNP Way */}
             <div className="bg-emerald-50/40 border border-emerald-200/70 rounded-2xl p-6 space-y-4">
               <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
                 <Check className="w-4 h-4 text-emerald-600" />
-                <span>The PlacementOS Way</span>
+                <span>The MMDU TNP Way</span>
               </div>
               <ul className="space-y-2.5 text-xs text-emerald-900/90">
                 <li className="flex items-start gap-2">
@@ -461,7 +458,7 @@ export default function HomePage() {
         <div className="bg-zinc-950 text-white rounded-3xl p-8 sm:p-12 text-center space-y-6 shadow-lg shadow-zinc-950/10">
           <div className="space-y-2 max-w-xl mx-auto">
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Ready to streamline your college placement process?
+              Ready to streamline MMDU placement process?
             </h2>
             <p className="text-xs sm:text-sm text-zinc-400">
               Explore the student experience or launch the placement team administrative console.
@@ -492,8 +489,8 @@ export default function HomePage() {
             <div className="w-5 h-5 bg-zinc-950 rounded flex items-center justify-center text-white text-[10px] font-bold">
               P
             </div>
-            <span className="font-bold text-zinc-900">PlacementOS</span>
-            <span>• College Placement Management Platform</span>
+            <span className="font-bold text-zinc-900">MMDU TNP</span>
+            <span>• Placement Management System</span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px] text-zinc-400">
