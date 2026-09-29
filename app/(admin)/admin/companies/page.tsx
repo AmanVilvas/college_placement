@@ -8,9 +8,11 @@ import { companies as initialCompanies, drives } from "@/lib/data/companies";
 import { Company } from "@/lib/types";
 import { Building2, Globe, ExternalLink, Briefcase, Plus, Search, MoreVertical, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useLocalStorageState } from "@/lib/useLocalStorageState";
 
 export default function AdminCompaniesPage() {
-  const [companyList, setCompanyList] = useState<Company[]>(initialCompanies);
+  const [companyList, setCompanyList] = useLocalStorageState<Company[]>("placement-helper:companies", initialCompanies);
+  const [driveList] = useLocalStorageState("placement-helper:drives", drives);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
 
@@ -20,14 +22,14 @@ export default function AdminCompaniesPage() {
   );
 
   const handleAdd = (newComp: Partial<Company>) => {
-    setCompanyList([newComp as Company, ...companyList]);
+    setCompanyList((current) => [newComp as Company, ...current]);
   };
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (confirm("Are you sure you want to archive this company?")) {
-      setCompanyList(companyList.filter((c) => c.id !== id));
+      setCompanyList((current) => current.filter((c) => c.id !== id));
     }
   };
 
@@ -59,14 +61,14 @@ export default function AdminCompaniesPage() {
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <span className="font-semibold text-slate-800">{companyList.length}</span> Total Companies
             <span>•</span>
-            <span className="font-semibold text-slate-800">{drives.length}</span> Total Drives
+            <span className="font-semibold text-slate-800">{driveList.length}</span> Total Drives
           </div>
         </div>
 
         {/* Companies Grid */}
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
           {filtered.map((company) => {
-            const companyDrives = drives.filter((d) => d.companyId === company.id);
+            const companyDrives = driveList.filter((d) => d.companyId === company.id);
             const activeDrives = companyDrives.filter((d) => d.status === "Open" || d.status === "Closing Soon");
 
             return (

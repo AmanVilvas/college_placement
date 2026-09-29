@@ -5,15 +5,17 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { AddDriveDialog } from "@/components/admin/AddDriveDialog";
-import { drives as initialDrives } from "@/lib/data/companies";
+import { companies as initialCompanies, drives as initialDrives } from "@/lib/data/companies";
 import { applications } from "@/lib/data/applications";
 import { Drive, DriveStatus } from "@/lib/types";
 import { formatPackage, formatDate, getDaysUntilDeadline } from "@/lib/utils";
 import { CalendarDays, Plus, MapPin, Users, Globe, ExternalLink, Search, Filter } from "lucide-react";
 import Link from "next/link";
+import { useLocalStorageState } from "@/lib/useLocalStorageState";
 
 export default function AdminDrivesPage() {
-  const [drivesList, setDrivesList] = useState<Drive[]>(initialDrives);
+  const [drivesList, setDrivesList] = useLocalStorageState<Drive[]>("placement-helper:drives", initialDrives);
+  const [companyList] = useLocalStorageState("placement-helper:companies", initialCompanies);
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -26,11 +28,11 @@ export default function AdminDrivesPage() {
   });
 
   const handleAddDrive = (newDrive: Partial<Drive>) => {
-    setDrivesList([newDrive as Drive, ...drivesList]);
+    setDrivesList((current) => [newDrive as Drive, ...current]);
   };
 
   const handleStatusChange = (driveId: string, newStatus: DriveStatus) => {
-    setDrivesList(drivesList.map((d) => d.id === driveId ? { ...d, status: newStatus } : d));
+    setDrivesList((current) => current.map((d) => d.id === driveId ? { ...d, status: newStatus } : d));
   };
 
   return (
@@ -158,6 +160,7 @@ export default function AdminDrivesPage() {
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
         onAdd={handleAddDrive}
+        companyOptions={companyList}
       />
     </div>
   );

@@ -9,9 +9,11 @@ import { Application, ApplicationStatus, Branch } from "@/lib/types";
 import { formatDate, APPLICATION_JOURNEY } from "@/lib/utils";
 import { Search, Filter, CheckCircle2, Download, FileSpreadsheet, Eye, Edit3 } from "lucide-react";
 import Link from "next/link";
+import { useLocalStorageState } from "@/lib/useLocalStorageState";
 
 export default function AdminApplicationsPage() {
-  const [applicationsList, setApplicationsList] = useState<Application[]>(initialApplications);
+  const [stageOverrides, setStageOverrides] = useLocalStorageState<Record<string, ApplicationStatus>>("placement-helper:application-stages", {});
+  const applicationsList: Application[] = initialApplications.map((application) => ({ ...application, status: stageOverrides[application.id] ?? application.status }));
   const [searchTerm, setSearchTerm] = useState("");
   const [companyFilter, setCompanyFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -32,9 +34,7 @@ export default function AdminApplicationsPage() {
   });
 
   const handleStatusChange = (appId: string, newStatus: ApplicationStatus) => {
-    setApplicationsList(
-      applicationsList.map((a) => (a.id === appId ? { ...a, status: newStatus, updatedAt: new Date().toISOString() } : a))
-    );
+    setStageOverrides((current) => ({ ...current, [appId]: newStatus }));
   };
 
   const handleExportCSV = () => {

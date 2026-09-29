@@ -7,9 +7,11 @@ import { drives } from "@/lib/data/companies";
 import { formatDate, formatPackage, getDaysUntilDeadline } from "@/lib/utils";
 import { Calendar, MapPin, Clock, Users } from "lucide-react";
 import Link from "next/link";
+import { useLocalStorageState } from "@/lib/useLocalStorageState";
 
 export default function DrivesPage() {
-  const upcoming = drives
+  const [driveList] = useLocalStorageState("placement-helper:drives", drives);
+  const upcoming = driveList
     .filter((d) => d.status === "Open" || d.status === "Closing Soon")
     .sort((a, b) => new Date(a.driveDate).getTime() - new Date(b.driveDate).getTime());
 

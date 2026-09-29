@@ -355,7 +355,7 @@ export default function HomePage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-rose-500 mt-0.5">✕</span>
-                  <span>Placement officers manually ask "Who applied?" and build fragile spreadsheets row by row.</span>
+                  <span>Placement officers manually ask &quot;Who applied?&quot; and build fragile spreadsheets row by row.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-rose-500 mt-0.5">✕</span>
@@ -502,7 +502,7 @@ export default function HomePage() {
             <span>•</span>
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              All Systems Operational
+              Frontend demo · local sample data
             </span>
           </div>
         </div>

@@ -8,6 +8,9 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ConfirmParticipationDialog } from "@/components/shared/ConfirmParticipationDialog";
 import type { ConfirmationFormData } from "@/components/shared/ConfirmParticipationDialog";
 import { drives } from "@/lib/data/companies";
+import { applications } from "@/lib/data/applications";
+import { students } from "@/lib/data/students";
+import { useLocalStorageState } from "@/lib/useLocalStorageState";
 import {
   formatPackage, formatDate, getDaysUntilDeadline,
 } from "@/lib/utils";
@@ -21,10 +24,12 @@ import Link from "next/link";
 export default function DriveDetailPage() {
   const params = useParams();
   const driveId = params.id as string;
-  const drive = drives.find((d) => d.id === driveId);
+  const [driveList] = useLocalStorageState("placement-helper:drives", drives);
+  const drive = driveList.find((d) => d.id === driveId);
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
+  const [stageOverrides, setStageOverrides] = useLocalStorageState<Record<string, string>>("placement-helper:application-stages", {});
+  const [confirmations, setConfirmations] = useLocalStorageState<Record<string, ConfirmationFormData>>("placement-helper:confirmations", {});
 
   if (!drive) {
     return (
@@ -38,10 +43,21 @@ export default function DriveDetailPage() {
   }
 
   const daysLeft = getDaysUntilDeadline(drive.applicationDeadline);
-  const isClosed = drive.status === "Closed" || drive.status === "Completed";
+  const isClosed = drive.status === "Closed" || drive.status === "Completed" || daysLeft < 0;
+  const currentStudent = students.find((student) => student.id === "s1")!;
+  const eligibilityIssues = [
+    ...(!drive.eligibility.branches.includes(currentStudent.branch) ? [`${currentStudent.branch} is not in the eligible branches`] : []),
+    ...(currentStudent.cgpa < drive.eligibility.minCGPA ? [`Your CGPA (${currentStudent.cgpa}) is below ${drive.eligibility.minCGPA}`] : []),
+    ...(currentStudent.backlogs > drive.eligibility.maxBacklogs ? [`Your backlog count exceeds ${drive.eligibility.maxBacklogs}`] : []),
+    ...(drive.eligibility.tenthMin && currentStudent.tenthPercent < drive.eligibility.tenthMin ? [`10th marks must be at least ${drive.eligibility.tenthMin}%`] : []),
+    ...(drive.eligibility.twelfthMin && currentStudent.twelfthPercent < drive.eligibility.twelfthMin ? [`12th marks must be at least ${drive.eligibility.twelfthMin}%`] : []),
+  ];
+  const matchingApplication = applications.find((application) => application.studentId === currentStudent.id && application.driveId === drive.id);
+  const confirmed = Boolean(confirmations[drive.id]) || Boolean(matchingApplication && (stageOverrides[matchingApplication.id] ?? matchingApplication.status) === "Confirmed");
 
   const handleConfirm = (data: ConfirmationFormData) => {
-    setTimeout(() => setConfirmed(true), 1200);
+    setConfirmations((current) => ({ ...current, [drive.id]: data }));
+    if (matchingApplication) setStageOverrides((current) => ({ ...current, [matchingApplication.id]: "Confirmed" }));
   };
 
   return (
@@ -169,15 +185,15 @@ export default function DriveDetailPage() {
                   <span className="text-xs font-bold text-slate-900">Apply on Official Portal</span>
                 </div>
                 <p className="text-[11px] text-slate-500 pl-7 leading-relaxed">
-                  Submit your actual application on the company's external careers page or Google form.
+                  Submit your actual application on the company&apos;s external careers page or Google form.
                 </p>
                 <div className="pl-7">
-                  {isClosed ? (
+                  {isClosed || eligibilityIssues.length > 0 ? (
                     <button
                       disabled
                       className="w-full bg-slate-100 text-slate-400 font-semibold py-2.5 rounded-xl text-xs cursor-not-allowed"
                     >
-                      Applications Closed
+                      {isClosed ? "Applications Closed" : "Check Eligibility Before Applying"}
                     </button>
                   ) : (
                     <a
@@ -216,10 +232,10 @@ export default function DriveDetailPage() {
                     </div>
                   ) : (
                     <button
-                      onClick={() => !isClosed && setShowConfirmDialog(true)}
-                      disabled={isClosed}
+                      onClick={() => !isClosed && eligibilityIssues.length === 0 && setShowConfirmDialog(true)}
+                      disabled={isClosed || eligibilityIssues.length > 0}
                       className={`w-full font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs ${
-                        isClosed
+                        isClosed || eligibilityIssues.length > 0
                           ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                           : "bg-indigo-600 hover:bg-indigo-700 text-white"
                       }`}
@@ -236,6 +252,10 @@ export default function DriveDetailPage() {
             <div className="card-clean p-5 bg-white space-y-3 text-xs">
               <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Eligibility Criteria</h4>
               <div className="space-y-2 text-slate-600">
+                <div className={`rounded-lg p-3 ${eligibilityIssues.length ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-900"}`}>
+                  <p className="font-semibold">{eligibilityIssues.length ? "Eligibility criteria not met" : "You meet the listed academic criteria"}</p>
+                  {eligibilityIssues.map((issue) => <p key={issue} className="mt-1 text-[11px]">{issue}</p>)}
+                </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Allowed Branches:</span>
                   <span className="font-semibold text-slate-900 text-right">

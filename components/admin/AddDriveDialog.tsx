@@ -1,20 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { X, CalendarDays, Plus, Info, Globe, ShieldAlert, Sparkles } from "lucide-react";
-import { Drive, Branch, JobType, WorkMode, DriveStatus } from "@/lib/types";
+import { X, CalendarDays, Plus, Globe, ShieldAlert, Sparkles } from "lucide-react";
+import { Drive, Branch, JobType, WorkMode, DriveStatus, Company } from "@/lib/types";
 import { companies } from "@/lib/data/companies";
 
 interface AddDriveDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (drive: Partial<Drive>) => void;
+  companyOptions?: Company[];
 }
 
 const ALL_BRANCHES: Branch[] = ["CSE", "IT", "ECE", "EEE", "ME", "CE", "MCA", "MBA"];
+const afterDays = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+};
 
-export function AddDriveDialog({ isOpen, onClose, onAdd }: AddDriveDialogProps) {
-  const [companyId, setCompanyId] = useState(companies[0]?.id || "");
+export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = companies }: AddDriveDialogProps) {
+  const [companyId, setCompanyId] = useState(companyOptions[0]?.id || "");
   const [role, setRole] = useState("");
   const [jobType, setJobType] = useState<JobType>("Full-time");
   const [packageLPA, setPackageLPA] = useState<number | undefined>(12);
@@ -22,8 +28,8 @@ export function AddDriveDialog({ isOpen, onClose, onAdd }: AddDriveDialogProps) 
   const [location, setLocation] = useState("Bangalore / Hybrid");
   const [workMode, setWorkMode] = useState<WorkMode>("Hybrid");
   const [openings, setOpenings] = useState(10);
-  const [applicationDeadline, setApplicationDeadline] = useState("2026-09-20");
-  const [driveDate, setDriveDate] = useState("2026-09-28");
+  const [applicationDeadline, setApplicationDeadline] = useState(() => afterDays(14));
+  const [driveDate, setDriveDate] = useState(() => afterDays(21));
   const [officialApplyLink, setOfficialApplyLink] = useState("");
   const [minCGPA, setMinCGPA] = useState(7.0);
   const [maxBacklogs, setMaxBacklogs] = useState(0);
@@ -43,8 +49,8 @@ export function AddDriveDialog({ isOpen, onClose, onAdd }: AddDriveDialogProps) 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const comp = companies.find((c) => c.id === companyId);
-    if (!comp || !role.trim()) return;
+    const comp = companyOptions.find((c) => c.id === companyId);
+    if (!comp || !role.trim() || selectedBranches.length === 0) return;
 
     onAdd({
       id: "d_" + Date.now(),
@@ -131,7 +137,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd }: AddDriveDialogProps) 
                 onChange={(e) => setCompanyId(e.target.value)}
                 className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
               >
-                {companies.map((c) => (
+                {companyOptions.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
@@ -161,6 +167,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd }: AddDriveDialogProps) 
                 <option value="Full-time">Full-time</option>
                 <option value="Internship">Internship</option>
                 <option value="Part-time">Part-time</option>
+                <option value="Contract">Contract</option>
               </select>
             </div>
 
@@ -202,12 +209,20 @@ export function AddDriveDialog({ isOpen, onClose, onAdd }: AddDriveDialogProps) 
             </div>
           </div>
 
+          <div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Location</label>
+              <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City or remote" className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800" />
+            </div>
+          </div>
+
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Application Deadline *</label>
               <input
                 type="date"
                 required
+                min={afterDays(0)}
                 value={applicationDeadline}
                 onChange={(e) => setApplicationDeadline(e.target.value)}
                 className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
@@ -219,6 +234,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd }: AddDriveDialogProps) 
               <input
                 type="date"
                 required
+                min={applicationDeadline}
                 value={driveDate}
                 onChange={(e) => setDriveDate(e.target.value)}
                 className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
@@ -295,6 +311,11 @@ export function AddDriveDialog({ isOpen, onClose, onAdd }: AddDriveDialogProps) 
               onChange={(e) => setSkills(e.target.value)}
               className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Job description</label>
+            <textarea value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} rows={4} placeholder="Describe responsibilities, qualifications, and the role's impact" className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800" />
           </div>
 
           <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-slate-100">

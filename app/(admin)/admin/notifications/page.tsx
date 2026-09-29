@@ -6,11 +6,12 @@ import { notifications as initialNotifications } from "@/lib/data/notifications"
 import { Notification, Branch, NotificationCategory } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { Bell, Send, CheckCircle2, Megaphone, Clock, Star, Award, Info, Users } from "lucide-react";
+import { useLocalStorageState } from "@/lib/useLocalStorageState";
 
 const ALL_BRANCHES: Branch[] = ["CSE", "IT", "ECE", "EEE", "ME", "CE", "MCA", "MBA"];
 
 export default function AdminNotificationsPage() {
-  const [notificationsList, setNotificationsList] = useState<Notification[]>(initialNotifications);
+  const [notificationsList, setNotificationsList] = useLocalStorageState<Notification[]>("placement-helper:notifications", initialNotifications);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState<NotificationCategory>("New Drive");
@@ -41,7 +42,7 @@ export default function AdminNotificationsPage() {
       targetBranches: targetBranches.length > 0 ? targetBranches : undefined,
     };
 
-    setNotificationsList([newNotif, ...notificationsList]);
+    setNotificationsList((current) => [newNotif, ...current]);
     setTitle("");
     setMessage("");
     setCompanyName("");
@@ -60,7 +61,7 @@ export default function AdminNotificationsPage() {
         {sentSuccess && (
           <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl flex items-center gap-2 text-sm">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-            <span>Broadcast notification successfully dispatched to target students!</span>
+            <span>Announcement added to the local demo notification feed. No email or push message was sent.</span>
           </div>
         )}
 

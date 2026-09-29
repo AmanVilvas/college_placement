@@ -1,7 +1,8 @@
 "use client";
 
+import { useLocalStorageState } from "@/lib/useLocalStorageState";
 import { StudentHeader } from "@/components/student/StudentHeader";
-import { notifications } from "@/lib/data/notifications";
+import { notifications as initialNotifications } from "@/lib/data/notifications";
 import { formatDateTime } from "@/lib/utils";
 import { Bell, Building2, Clock, Star, Award, Info } from "lucide-react";
 
@@ -15,6 +16,7 @@ const CATEGORY_ICONS: Record<string, { icon: typeof Bell; color: string; bg: str
 };
 
 export default function NotificationsPage() {
+  const [notifications, setNotifications] = useLocalStorageState("placement-helper:notifications", initialNotifications);
   const unread = notifications.filter((n) => !n.read);
   const read = notifications.filter((n) => n.read);
 
@@ -32,7 +34,7 @@ export default function NotificationsPage() {
                 const cat = CATEGORY_ICONS[notif.category] || CATEGORY_ICONS["General"];
                 const Icon = cat.icon;
                 return (
-                  <div key={notif.id} className="bg-white rounded-xl border border-indigo-100 shadow-sm p-4 flex gap-4">
+                      <div key={notif.id} className="bg-white rounded-xl border border-indigo-100 shadow-sm p-4 flex gap-4">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cat.bg}`}>
                       <Icon className={`w-5 h-5 ${cat.color}`} />
                     </div>
@@ -49,6 +51,7 @@ export default function NotificationsPage() {
                       </div>
                       <p className="text-xs text-slate-600 mt-1 leading-relaxed">{notif.message}</p>
                       <p className="text-[10px] text-slate-400 mt-2">{formatDateTime(notif.createdAt)}</p>
+                      <button onClick={() => setNotifications((current) => current.map((item) => item.id === notif.id ? { ...item, read: true } : item))} className="mt-2 text-[10px] font-semibold text-indigo-700">Mark as read</button>
                     </div>
                   </div>
                 );
