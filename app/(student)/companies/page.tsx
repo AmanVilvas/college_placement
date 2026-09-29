@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { drives } from "@/lib/data/companies";
 import { useLocalStorageState } from "@/lib/useLocalStorageState";
 import { useStudentProfile } from "@/lib/studentState";
+import { getDriveEligibilityIssues, isDriveAcceptingApplications } from "@/lib/driveRegistration";
 import { formatDate, formatPackage, getDaysUntilDeadline } from "@/lib/utils";
 import {
   ArrowDownWideNarrow, ArrowRight, Bookmark, BriefcaseBusiness, Check,
@@ -17,17 +18,6 @@ import {
 const SAVED_DRIVES_KEY = "placement-helper:saved-drives:s1";
 type Availability = "All drives" | "Open now" | "Closing soon" | "Saved";
 type SortBy = "Recommended" | "Deadline" | "Package: high to low";
-
-function getEligibility(drive: (typeof drives)[number], student: ReturnType<typeof useStudentProfile>[0]) {
-  const reasons: string[] = [];
-  if (!drive.eligibility.branches.includes(student.branch)) reasons.push(`${student.branch} is not in the eligible branches`);
-  if (student.cgpa < drive.eligibility.minCGPA) reasons.push(`CGPA ${student.cgpa} is below the ${drive.eligibility.minCGPA} minimum`);
-  if (student.backlogs > drive.eligibility.maxBacklogs) reasons.push(`${student.backlogs} backlogs exceeds the limit of ${drive.eligibility.maxBacklogs}`);
-  if (drive.eligibility.tenthMin && student.tenthPercent < drive.eligibility.tenthMin) reasons.push(`10th score is below ${drive.eligibility.tenthMin}%`);
-  if (drive.eligibility.twelfthMin && student.twelfthPercent < drive.eligibility.twelfthMin) reasons.push(`12th score is below ${drive.eligibility.twelfthMin}%`);
-  if (drive.eligibility.passOutYear && drive.eligibility.passOutYear !== "2026") reasons.push(`Graduation year ${drive.eligibility.passOutYear} does not match your batch`);
-  return reasons;
-}
 
 export default function CompaniesPage() {
   const [student] = useStudentProfile();
@@ -51,20 +41,20 @@ export default function CompaniesPage() {
     const filtered = driveList.filter((drive) => {
       const searchable = [drive.companyName, drive.role, drive.location, ...drive.requiredSkills].join(" ").toLowerCase();
       const daysLeft = getDaysUntilDeadline(drive.applicationDeadline);
-      const open = drive.status === "Open" || drive.status === "Closing Soon";
+      const open = isDriveAcceptingApplications(drive);
       return (!query || searchable.includes(query))
         && (availability === "All drives" || (availability === "Open now" && open && daysLeft >= 0) || (availability === "Closing soon" && open && daysLeft >= 0 && daysLeft <= 5) || (availability === "Saved" && savedIds.includes(drive.id)))
         && (jobType === "Any type" || drive.jobType === jobType)
         && (workMode === "Any location" || drive.workMode === workMode)
-        && (!eligibleOnly || getEligibility(drive, student).length === 0);
+        && (!eligibleOnly || getDriveEligibilityIssues(drive, student).length === 0);
     });
     if (sortBy === "Deadline") filtered.sort((a, b) => a.applicationDeadline.localeCompare(b.applicationDeadline));
     if (sortBy === "Package: high to low") filtered.sort((a, b) => (b.packageLPA ?? 0) - (a.packageLPA ?? 0));
     return filtered;
   }, [searchTerm, availability, jobType, workMode, eligibleOnly, savedIds, sortBy, driveList, student]);
 
-  const openDrives = driveList.filter((drive) => (drive.status === "Open" || drive.status === "Closing Soon") && getDaysUntilDeadline(drive.applicationDeadline) >= 0).length;
-  const eligibleDrives = driveList.filter((drive) => getEligibility(drive, student).length === 0).length;
+  const openDrives = driveList.filter(isDriveAcceptingApplications).length;
+  const eligibleDrives = driveList.filter((drive) => getDriveEligibilityIssues(drive, student).length === 0).length;
 
   function toggleSaved(driveId: string) {
     setSavedIds((current) => current.includes(driveId) ? current.filter((id) => id !== driveId) : [...current, driveId]);
@@ -141,9 +131,9 @@ export default function CompaniesPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             {filteredDrives.map((drive) => {
               const daysLeft = getDaysUntilDeadline(drive.applicationDeadline);
-              const reasons = getEligibility(drive, student);
+              const reasons = getDriveEligibilityIssues(drive, student);
               const isSaved = savedIds.includes(drive.id);
-              const isOpen = (drive.status === "Open" || drive.status === "Closing Soon") && daysLeft >= 0;
+              const isOpen = isDriveAcceptingApplications(drive);
               return (
                 <article key={drive.id} className="group relative rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md sm:p-6">
                   <div className="flex items-start gap-3">
@@ -169,7 +159,7 @@ export default function CompaniesPage() {
                   </div>
                   <div className="mt-4 flex items-center justify-between gap-3">
                     <div className={`flex items-center gap-1.5 text-xs font-medium ${daysLeft >= 0 && daysLeft <= 5 && isOpen ? "text-rose-600" : "text-slate-500"}`}><Clock3 className="h-3.5 w-3.5" />{isOpen ? `Deadline ${formatDate(drive.applicationDeadline)}${daysLeft >= 0 ? ` · ${daysLeft}d left` : ""}` : `Closed · ${formatDate(drive.applicationDeadline)}`}</div>
-                    <Link href={`/companies/${drive.id}`} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-700">View drive <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></Link>
+                    <Link href={`/companies/${drive.id}`} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-700">View drive &amp; register <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></Link>
                   </div>
                 </article>
               );

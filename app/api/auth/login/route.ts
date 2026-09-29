@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiError, authenticate } from "@/lib/server/supabase";
+import { apiError, authenticate, currentProfile, signOut } from "@/lib/server/supabase";
 
 const schema = z.object({ email: z.string().email(), password: z.string().min(1).max(128) });
 

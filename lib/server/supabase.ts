@@ -6,8 +6,8 @@ const REFRESH_COOKIE = "placement_refresh_token";
 
 function config() {
   const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error("Backend is not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY.");
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error("Backend is not configured. Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY.");
   return { url: url.replace(/\/$/, ""), key };
 }
 
@@ -17,14 +17,14 @@ export class ApiError extends Error {
 
 async function supabaseFetch(path: string, init: RequestInit = {}, token?: string) {
   const { url, key } = config();
+  const headers = new Headers(init.headers);
+  headers.set("apikey", key);
+  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  else if (process.env.SUPABASE_ANON_KEY?.startsWith("eyJ")) headers.set("Authorization", `Bearer ${process.env.SUPABASE_ANON_KEY}`);
   const response = await fetch(`${url}${path}`, {
     ...init,
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${token ?? key}`,
-      "Content-Type": "application/json",
-      ...init.headers,
-    },
+    headers,
     cache: "no-store",
   });
   const body = await response.json().catch(() => null);
@@ -109,6 +109,15 @@ export async function currentProfile() {
   const profile = Array.isArray(body) ? body[0] : null;
   if (!profile?.active) throw new ApiError(403, "Your account is awaiting placement-office access.");
   return { user, profile };
+}
+
+export async function updatePassword(password: string) {
+  const token = await accessToken();
+  const { body } = await supabaseFetch("/auth/v1/user", {
+    method: "PUT",
+    body: JSON.stringify({ password, data: { must_change_password: false } }),
+  }, token);
+  return body;
 }
 
 export async function databaseRequest(path: string, init: RequestInit = {}) {

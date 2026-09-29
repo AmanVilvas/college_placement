@@ -11,6 +11,7 @@ import { drives } from "@/lib/data/companies";
 import { notifications as seededNotifications } from "@/lib/data/notifications";
 import { useLocalStorageState } from "@/lib/useLocalStorageState";
 import { useStudentApplications, useStudentProfile } from "@/lib/studentState";
+import { getDriveEligibilityIssues, isDriveAcceptingApplications } from "@/lib/driveRegistration";
 import type { Application, Notification } from "@/lib/types";
 import {
   formatPackage, formatDate, getDaysUntilDeadline,
@@ -33,7 +34,6 @@ export default function DriveDetailPage() {
   const drive = driveList.find((d) => d.id === driveId);
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [confirmations, setConfirmations] = useLocalStorageState<Record<string, ConfirmationFormData>>("placement-helper:confirmations", {});
 
   if (!drive) {
     return (
@@ -47,19 +47,19 @@ export default function DriveDetailPage() {
   }
 
   const daysLeft = getDaysUntilDeadline(drive.applicationDeadline);
-  const isClosed = drive.status === "Closed" || drive.status === "Completed" || daysLeft < 0;
-  const eligibilityIssues = [
-    ...(!drive.eligibility.branches.includes(currentStudent.branch) ? [`${currentStudent.branch} is not in the eligible branches`] : []),
-    ...(currentStudent.cgpa < drive.eligibility.minCGPA ? [`Your CGPA (${currentStudent.cgpa}) is below ${drive.eligibility.minCGPA}`] : []),
-    ...(currentStudent.backlogs > drive.eligibility.maxBacklogs ? [`Your backlog count exceeds ${drive.eligibility.maxBacklogs}`] : []),
-    ...(drive.eligibility.tenthMin && currentStudent.tenthPercent < drive.eligibility.tenthMin ? [`10th marks must be at least ${drive.eligibility.tenthMin}%`] : []),
-    ...(drive.eligibility.twelfthMin && currentStudent.twelfthPercent < drive.eligibility.twelfthMin ? [`12th marks must be at least ${drive.eligibility.twelfthMin}%`] : []),
-  ];
+  const isClosed = !isDriveAcceptingApplications(drive);
+  const eligibilityIssues = getDriveEligibilityIssues(drive, currentStudent);
   const matchingApplication = myApplications.find((application) => application.driveId === drive.id);
-  const confirmed = Boolean(confirmations[drive.id]) || Boolean(matchingApplication && matchingApplication.status === "Confirmed");
+  const confirmed = Boolean(matchingApplication && matchingApplication.status === "Confirmed");
 
   const handleConfirm = (data: ConfirmationFormData) => {
-    setConfirmations((current) => ({ ...current, [drive.id]: data }));
+    if (!isDriveAcceptingApplications(drive)
+      || getDriveEligibilityIssues(drive, currentStudent).length > 0
+      || !portalLaunches[drive.id]
+      || data.branch !== currentStudent.branch
+      || data.section !== currentStudent.section
+      || data.fullName.trim().toLowerCase() !== currentStudent.name.trim().toLowerCase()
+      || data.rollNumber.trim().toLowerCase() !== currentStudent.rollNumber.trim().toLowerCase()) return false;
     const now = new Date().toISOString();
     const application: Application = {
       id: matchingApplication?.id ?? `app-${currentStudent.id}-${drive.id}`,
@@ -74,6 +74,7 @@ export default function DriveDetailPage() {
     if (!notifications.some((notification) => notification.title === `Participation confirmed · ${drive.companyName}`)) {
       setNotifications((current) => [{ id: `confirm-${drive.id}-${Date.now()}`, title: `Participation confirmed · ${drive.companyName}`, message: `Your participation for ${drive.role} was saved on this device. Complete any remaining steps on the official company portal.`, category: "General", createdAt: now, read: false, driveId: drive.id, companyName: drive.companyName }, ...current]);
     }
+    return true;
   };
 
   return (
@@ -96,7 +97,7 @@ export default function DriveDetailPage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-2xl font-bold tracking-tight text-slate-950">{drive.companyName}</h1>
-                  <StatusBadge status={drive.status} />
+                  <StatusBadge status={isClosed ? "Closed" : drive.status} />
                   {daysLeft > 0 && daysLeft <= 5 && !isClosed && (
                     <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
                       ⏳ {daysLeft} days remaining
@@ -204,6 +205,7 @@ export default function DriveDetailPage() {
                   Submit your actual application on the company&apos;s external careers page or Google form.
                 </p>
                 <div className="pl-7">
+                  {portalLaunches[drive.id] && <p className="mb-2 text-[10px] font-semibold text-emerald-700">Official portal opened · {formatDate(portalLaunches[drive.id])}</p>}
                   {isClosed || eligibilityIssues.length > 0 ? (
                     <button
                       disabled
@@ -244,8 +246,12 @@ export default function DriveDetailPage() {
                       <CheckCircle className="w-4 h-4 text-teal-600 flex-shrink-0" />
                       <div>
                         <p className="font-bold">Application Confirmed ✓</p>
-                        <p className="text-[10px] text-teal-700">Placement team notified</p>
+                        <p className="text-[10px] text-teal-700">Saved to My Applications on this browser</p>
                       </div>
+                    </div>
+                  ) : !portalLaunches[drive.id] && !isClosed && eligibilityIssues.length === 0 ? (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] leading-5 text-amber-900">
+                      Complete step 1 on the official portal first. After returning, you can submit your participation details here.
                     </div>
                   ) : (
                     <button

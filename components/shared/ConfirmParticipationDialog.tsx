@@ -10,7 +10,7 @@ interface ConfirmParticipationDialogProps {
   drive: Drive;
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (data: ConfirmationFormData) => void;
+  onConfirm: (data: ConfirmationFormData) => boolean | void;
   initialData?: Partial<ConfirmationFormData>;
   onResumeUploaded?: (fileName: string) => void;
 }
@@ -50,12 +50,14 @@ export function ConfirmParticipationDialog({
   const [form, setForm] = useState<ConfirmationFormData>(INITIAL_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Partial<ConfirmationFormData>>({});
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
     setForm({ ...INITIAL_FORM, ...initialData, confirmed: false });
     setSubmitted(false);
     setErrors({});
+    setSubmitError("");
   }, [isOpen, drive.id]);
 
   if (!isOpen) return null;
@@ -80,8 +82,12 @@ export function ConfirmParticipationDialog({
       setErrors(errs as Partial<ConfirmationFormData>);
       return;
     }
+    const accepted = onConfirm(form);
+    if (accepted === false) {
+      setSubmitError("Registration could not be completed. Check that the drive is open, you are eligible, and your profile details match.");
+      return;
+    }
     setSubmitted(true);
-    onConfirm(form);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,7 +149,7 @@ export function ConfirmParticipationDialog({
               Your participation for <strong>{drive.companyName}</strong> – {drive.role} has been recorded.
             </p>
             <p className="text-slate-400 text-xs mb-6">
-              The placement team has been notified. Your status is now <strong>Confirmed</strong>.
+              Your registration is saved under My Applications in this browser. Your status is now <strong>Confirmed</strong>.
             </p>
             <button
               onClick={onClose}
@@ -308,6 +314,8 @@ export function ConfirmParticipationDialog({
               </label>
             </div>
             {errors.confirmed && <p className="text-xs text-red-500">{errors.confirmed}</p>}
+
+            {submitError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">{submitError}</p>}
 
             {/* Submit Button */}
             <button
