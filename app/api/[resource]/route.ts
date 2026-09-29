@@ -25,7 +25,7 @@ async function authorizeWrite(resource: string, method: "POST" | "PATCH" | "DELE
   throw new ApiError(403, "Your role cannot perform this operation.");
 }
 
-export async function GET(request: Request, context: RouteContext<"/api/[resource]">) {
+export async function GET(request: Request, context: { params: Promise<{ resource: string }> }) {
   try {
     const { resource } = await context.params;
     const table = await tableFor(resource);
@@ -60,7 +60,7 @@ export async function GET(request: Request, context: RouteContext<"/api/[resourc
   } catch (error) { return apiError(error); }
 }
 
-export async function POST(request: Request, context: RouteContext<"/api/[resource]">) {
+export async function POST(request: Request, context: { params: Promise<{ resource: string }> }) {
   try {
     const { resource } = await context.params;
     const table = await tableFor(resource);

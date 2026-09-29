@@ -23,7 +23,7 @@ async function requireStaff() {
   }
 }
 
-export async function PATCH(request: Request, context: RouteContext<"/api/[resource]/[id]">) {
+export async function PATCH(request: Request, context: { params: Promise<{ resource: string; id: string }> }) {
   try {
     const { resource, id } = await context.params;
     await requireStaff();
@@ -36,7 +36,7 @@ export async function PATCH(request: Request, context: RouteContext<"/api/[resou
   } catch (error) { return apiError(error); }
 }
 
-export async function DELETE(_request: Request, context: RouteContext<"/api/[resource]/[id]">) {
+export async function DELETE(_request: Request, context: { params: Promise<{ resource: string; id: string }> }) {
   try {
     const { resource, id } = await context.params;
     await requireStaff();
