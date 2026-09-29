@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 
 const ACCESS_COOKIE = "placement_access_token";
 const REFRESH_COOKIE = "placement_refresh_token";
+export const DEMO_SESSION_COOKIE = "placement_demo_session";
 
 function config() {
   const url = process.env.SUPABASE_URL;
@@ -35,6 +36,12 @@ async function supabaseFetch(path: string, init: RequestInit = {}, token?: strin
   return { body, response };
 }
 
+export async function setDemoSession(data: { id: string; role: "student" | "college_admin"; email: string; name?: string; rollNumber?: string }) {
+  const jar = await cookies();
+  const options = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/" };
+  jar.set(DEMO_SESSION_COOKIE, JSON.stringify(data), { ...options, maxAge: 60 * 60 * 24 * 7 });
+}
+
 export async function authenticate(email: string, password: string) {
   const { body } = await supabaseFetch("/auth/v1/token?grant_type=password", {
     method: "POST", body: JSON.stringify({ email, password }),
@@ -62,6 +69,7 @@ export async function register(email: string, password: string, metadata: Record
 
 export async function signOut() {
   const jar = await cookies();
+  jar.delete(DEMO_SESSION_COOKIE);
   const token = jar.get(ACCESS_COOKIE)?.value;
   if (token) await supabaseFetch("/auth/v1/logout", { method: "POST" }, token).catch(() => undefined);
   jar.delete(ACCESS_COOKIE);
@@ -104,6 +112,19 @@ export async function currentUser() {
 }
 
 export async function currentProfile() {
+  const jar = await cookies();
+  const demoCookie = jar.get(DEMO_SESSION_COOKIE)?.value;
+  if (demoCookie) {
+    try {
+      const demo = JSON.parse(demoCookie);
+      return {
+        user: { id: demo.id || "demo-user", email: demo.email || "student@college.edu", user_metadata: {} },
+        profile: { id: demo.id || "demo-user", role: demo.role || "student", institution_id: "demo", campus_id: "demo", active: true },
+      };
+    } catch {
+      // ignore parse error
+    }
+  }
   const user = await currentUser();
   const { body } = await databaseRequest(`profiles?id=eq.${encodeURIComponent(user.id)}&select=id,role,institution_id,campus_id,active`);
   const profile = Array.isArray(body) ? body[0] : null;

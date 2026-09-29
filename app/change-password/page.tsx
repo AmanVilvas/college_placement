@@ -1,2 +1,5 @@
-import { ChangePassword } from "@/components/auth/AuthScreens";
-export default function Page() { return <ChangePassword />; }
+import { redirect } from "next/navigation";
+
+export default function Page() {
+  redirect("/dashboard");
+}

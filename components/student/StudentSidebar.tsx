@@ -38,7 +38,6 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
         })}
       </nav>
       <div className="border-t border-slate-100 bg-slate-50/50 p-3">
-        <Link href="/change-password" onClick={onNavigate} className="mb-2 block px-2 py-1 text-xs font-medium text-indigo-600 hover:text-indigo-800">Change password</Link>
         <Link href="/profile" onClick={onNavigate} className="group flex items-center gap-2.5 rounded-xl border border-transparent p-2 transition-all hover:border-slate-200/80 hover:bg-white">
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white shadow-sm">{student.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</div>
           <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-slate-800 transition-colors group-hover:text-indigo-600">{student.name}</p><p className="truncate text-[10px] text-slate-400">{student.rollNumber} · {student.branch}-{student.section}</p></div>

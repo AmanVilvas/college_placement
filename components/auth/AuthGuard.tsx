@@ -8,7 +8,6 @@ export function AuthGuard({ kind, children }: { kind: "student" | "admin"; child
     const role = body.profile?.role;
     const valid = ok && (kind === "student" ? role === "student" : ["super_admin", "college_admin", "tpo", "coordinator"].includes(role));
     if (!valid) { router.replace(kind === "student" ? "/student/login" : "/admin/login"); return; }
-    if (body.user?.user_metadata?.must_change_password && pathname !== "/change-password") { router.replace("/change-password"); return; }
     setAllowed(true);
   }).catch(() => router.replace(kind === "student" ? "/student/login" : "/admin/login")); return () => { active = false; }; }, [kind, pathname, router]);
   if (!allowed) return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">Checking your account…</div>;

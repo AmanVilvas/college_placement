@@ -17,9 +17,19 @@ function Login({ admin }: { admin: boolean }) {
     try {
       const response = await fetch(`/api/auth/${admin ? "admin-login" : "student-login"}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(admin ? values : { rollNumber: values.rollNumber, password: values.password }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error ?? "Unable to sign in.");
-      const me = await fetch("/api/auth/me").then((r) => r.json());
-      if (me.user?.user_metadata?.must_change_password) router.replace("/change-password");
-      else router.replace(admin ? "/admin/dashboard" : "/dashboard");
+      if (!admin && values.rollNumber) {
+        try {
+          const profileKey = "placement-helper:student-profile:s1";
+          const raw = localStorage.getItem(profileKey);
+          const current = raw ? JSON.parse(raw) : {};
+          localStorage.setItem(profileKey, JSON.stringify({
+            ...current,
+            rollNumber: String(values.rollNumber),
+            name: data.student?.name || current.name || `Student (${values.rollNumber})`,
+          }));
+        } catch {}
+      }
+      router.replace(admin ? "/admin/dashboard" : "/dashboard");
       router.refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to sign in."); }
     finally { setBusy(false); }
