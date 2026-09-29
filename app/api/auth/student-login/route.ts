@@ -6,7 +6,25 @@ const schema = z.object({ rollNumber: z.string().trim().min(1).max(64), password
 let pool: Pool | undefined;
 function database() {
   if (!process.env.DATABASE_URL) throw new Error("Student sign-in is not configured. Set DATABASE_URL on the server.");
-  return pool ??= new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 3 });
+  const url = new URL(process.env.DATABASE_URL);
+  // Supabase's direct database hostname is IPv6-only on some plans/runtimes.
+  // Route it through this project's verified Singapore session pooler instead.
+  const directHost = url.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/i);
+  if (directHost) {
+    url.hostname = "aws-0-ap-southeast-1.pooler.supabase.com";
+    url.port = "5432";
+    url.username = `postgres.${directHost[1]}`;
+  }
+  pool ??= new Pool({
+    host: url.hostname,
+    port: Number(url.port || 5432),
+    database: decodeURIComponent(url.pathname.replace(/^\//, "")) || "postgres",
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    ssl: { rejectUnauthorized: false },
+    max: 3,
+  });
+  return pool;
 }
 
 export async function POST(request: Request) {
