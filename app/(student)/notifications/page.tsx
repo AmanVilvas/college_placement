@@ -5,6 +5,7 @@ import { StudentHeader } from "@/components/student/StudentHeader";
 import { notifications as initialNotifications } from "@/lib/data/notifications";
 import { formatDateTime } from "@/lib/utils";
 import { Bell, Building2, Clock, Star, Award, Info } from "lucide-react";
+import Link from "next/link";
 
 const CATEGORY_ICONS: Record<string, { icon: typeof Bell; color: string; bg: string }> = {
   "New Drive": { icon: Building2, color: "text-indigo-600", bg: "bg-indigo-100" },
@@ -24,6 +25,7 @@ export default function NotificationsPage() {
     <div>
       <StudentHeader title="Notifications" subtitle={`${unread.length} unread notifications`} />
       <div className="p-6 space-y-6">
+        {unread.length > 0 && <button onClick={() => setNotifications((current) => current.map((item) => ({ ...item, read: true })))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Mark all as read</button>}
         {unread.length > 0 && (
           <div>
             <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
@@ -51,6 +53,7 @@ export default function NotificationsPage() {
                       </div>
                       <p className="text-xs text-slate-600 mt-1 leading-relaxed">{notif.message}</p>
                       <p className="text-[10px] text-slate-400 mt-2">{formatDateTime(notif.createdAt)}</p>
+                      {notif.driveId && <Link href={`/companies/${notif.driveId}`} className="mt-2 inline-block text-[10px] font-semibold text-indigo-700 hover:underline">View related drive →</Link>}
                       <button onClick={() => setNotifications((current) => current.map((item) => item.id === notif.id ? { ...item, read: true } : item))} className="mt-2 text-[10px] font-semibold text-indigo-700">Mark as read</button>
                     </div>
                   </div>
@@ -82,6 +85,7 @@ export default function NotificationsPage() {
                       <h3 className="text-sm font-semibold text-slate-700 mt-0.5">{notif.title}</h3>
                       <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-2">{notif.message}</p>
                       <p className="text-[10px] text-slate-400 mt-2">{formatDateTime(notif.createdAt)}</p>
+                      {notif.driveId && <Link href={`/companies/${notif.driveId}`} className="mt-2 inline-block text-[10px] font-semibold text-indigo-700 hover:underline">View related drive →</Link>}
                     </div>
                   </div>
                 );
@@ -89,6 +93,7 @@ export default function NotificationsPage() {
             </div>
           </div>
         )}
+        {notifications.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center"><Bell className="mx-auto h-8 w-8 text-slate-300"/><h2 className="mt-3 font-semibold text-slate-800">You’re all caught up</h2><p className="mt-1 text-xs text-slate-500">New placement updates will appear here.</p></div>}
       </div>
     </div>
   );

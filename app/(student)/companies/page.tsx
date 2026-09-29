@@ -6,8 +6,8 @@ import { StudentHeader } from "@/components/student/StudentHeader";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { drives } from "@/lib/data/companies";
-import { students } from "@/lib/data/students";
 import { useLocalStorageState } from "@/lib/useLocalStorageState";
+import { useStudentProfile } from "@/lib/studentState";
 import { formatDate, formatPackage, getDaysUntilDeadline } from "@/lib/utils";
 import {
   ArrowDownWideNarrow, ArrowRight, Bookmark, BriefcaseBusiness, Check,
@@ -15,11 +15,10 @@ import {
 } from "lucide-react";
 
 const SAVED_DRIVES_KEY = "placement-helper:saved-drives:s1";
-const student = students.find((item) => item.id === "s1")!;
 type Availability = "All drives" | "Open now" | "Closing soon" | "Saved";
 type SortBy = "Recommended" | "Deadline" | "Package: high to low";
 
-function getEligibility(drive: (typeof drives)[number]) {
+function getEligibility(drive: (typeof drives)[number], student: ReturnType<typeof useStudentProfile>[0]) {
   const reasons: string[] = [];
   if (!drive.eligibility.branches.includes(student.branch)) reasons.push(`${student.branch} is not in the eligible branches`);
   if (student.cgpa < drive.eligibility.minCGPA) reasons.push(`CGPA ${student.cgpa} is below the ${drive.eligibility.minCGPA} minimum`);
@@ -31,27 +30,19 @@ function getEligibility(drive: (typeof drives)[number]) {
 }
 
 export default function CompaniesPage() {
+  const [student] = useStudentProfile();
   const [searchTerm, setSearchTerm] = useState("");
   const [availability, setAvailability] = useState<Availability>("All drives");
   const [jobType, setJobType] = useState("Any type");
   const [workMode, setWorkMode] = useState("Any location");
   const [sortBy, setSortBy] = useState<SortBy>("Recommended");
   const [eligibleOnly, setEligibleOnly] = useState(false);
-  const [savedIds, setSavedIds] = useState<string[]>([]);
-  const [savedLoaded, setSavedLoaded] = useState(false);
+  const [savedIds, setSavedIds, savedLoaded] = useLocalStorageState<string[]>(SAVED_DRIVES_KEY, []);
   const [driveList] = useLocalStorageState("placement-helper:drives", drives);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      try {
-        const stored = window.localStorage.getItem(SAVED_DRIVES_KEY);
-        if (stored) setSavedIds(JSON.parse(stored) as string[]);
-      } catch {
-        // Storage can be unavailable in private browsing; the page still works for this session.
-      }
-      setSavedLoaded(true);
-    });
-    return () => window.cancelAnimationFrame(frame);
+    const search = new URLSearchParams(window.location.search).get("search");
+    if (search) setSearchTerm(search);
   }, []);
 
   const filtersActive = Boolean(searchTerm || availability !== "All drives" || jobType !== "Any type" || workMode !== "Any location" || eligibleOnly);
@@ -65,22 +56,18 @@ export default function CompaniesPage() {
         && (availability === "All drives" || (availability === "Open now" && open && daysLeft >= 0) || (availability === "Closing soon" && open && daysLeft >= 0 && daysLeft <= 5) || (availability === "Saved" && savedIds.includes(drive.id)))
         && (jobType === "Any type" || drive.jobType === jobType)
         && (workMode === "Any location" || drive.workMode === workMode)
-        && (!eligibleOnly || getEligibility(drive).length === 0);
+        && (!eligibleOnly || getEligibility(drive, student).length === 0);
     });
     if (sortBy === "Deadline") filtered.sort((a, b) => a.applicationDeadline.localeCompare(b.applicationDeadline));
     if (sortBy === "Package: high to low") filtered.sort((a, b) => (b.packageLPA ?? 0) - (a.packageLPA ?? 0));
     return filtered;
-  }, [searchTerm, availability, jobType, workMode, eligibleOnly, savedIds, sortBy, driveList]);
+  }, [searchTerm, availability, jobType, workMode, eligibleOnly, savedIds, sortBy, driveList, student]);
 
   const openDrives = driveList.filter((drive) => (drive.status === "Open" || drive.status === "Closing Soon") && getDaysUntilDeadline(drive.applicationDeadline) >= 0).length;
-  const eligibleDrives = driveList.filter((drive) => getEligibility(drive).length === 0).length;
+  const eligibleDrives = driveList.filter((drive) => getEligibility(drive, student).length === 0).length;
 
   function toggleSaved(driveId: string) {
-    setSavedIds((current) => {
-      const next = current.includes(driveId) ? current.filter((id) => id !== driveId) : [...current, driveId];
-      try { window.localStorage.setItem(SAVED_DRIVES_KEY, JSON.stringify(next)); } catch { /* Keep in-memory state. */ }
-      return next;
-    });
+    setSavedIds((current) => current.includes(driveId) ? current.filter((id) => id !== driveId) : [...current, driveId]);
   }
 
   function resetFilters() {
@@ -154,7 +141,7 @@ export default function CompaniesPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             {filteredDrives.map((drive) => {
               const daysLeft = getDaysUntilDeadline(drive.applicationDeadline);
-              const reasons = getEligibility(drive);
+              const reasons = getEligibility(drive, student);
               const isSaved = savedIds.includes(drive.id);
               const isOpen = (drive.status === "Open" || drive.status === "Closing Soon") && daysLeft >= 0;
               return (

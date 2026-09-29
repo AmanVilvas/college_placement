@@ -3,19 +3,17 @@
 import { StudentHeader } from "@/components/student/StudentHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
-import { applications } from "@/lib/data/applications";
-import { drives } from "@/lib/data/companies";
+import { drives as seededDrives } from "@/lib/data/companies";
 import { formatDate, formatPackage, APPLICATION_JOURNEY } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { useStudentApplications } from "@/lib/studentState";
 import { useLocalStorageState } from "@/lib/useLocalStorageState";
 import { CheckCircle, Circle, FileText, Calendar, Building2 } from "lucide-react";
 import Link from "next/link";
 
-const CURRENT_STUDENT_ID = "s1";
-
 export default function MyApplicationsPage() {
-  const [stages] = useLocalStorageState<Record<string, string>>("placement-helper:application-stages", {});
-  const myApps = applications.filter((a) => a.studentId === CURRENT_STUDENT_ID).map((application) => ({ ...application, status: stages[application.id] ?? application.status }));
+  const { applications: myApps } = useStudentApplications();
+  const [drives] = useLocalStorageState("placement-helper:drives", seededDrives);
 
   const statusGroups = {
     active: myApps.filter((a) => !["Placed", "Rejected", "Not Responded"].includes(a.status)),

@@ -8,9 +8,10 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ConfirmParticipationDialog } from "@/components/shared/ConfirmParticipationDialog";
 import type { ConfirmationFormData } from "@/components/shared/ConfirmParticipationDialog";
 import { drives } from "@/lib/data/companies";
-import { applications } from "@/lib/data/applications";
-import { students } from "@/lib/data/students";
+import { notifications as seededNotifications } from "@/lib/data/notifications";
 import { useLocalStorageState } from "@/lib/useLocalStorageState";
+import { useStudentApplications, useStudentProfile } from "@/lib/studentState";
+import type { Application, Notification } from "@/lib/types";
 import {
   formatPackage, formatDate, getDaysUntilDeadline,
 } from "@/lib/utils";
@@ -25,10 +26,13 @@ export default function DriveDetailPage() {
   const params = useParams();
   const driveId = params.id as string;
   const [driveList] = useLocalStorageState("placement-helper:drives", drives);
+  const [currentStudent, setCurrentStudent] = useStudentProfile();
+  const { applications: myApplications, saveApplication } = useStudentApplications();
+  const [notifications, setNotifications] = useLocalStorageState<Notification[]>("placement-helper:notifications", seededNotifications);
+  const [portalLaunches, setPortalLaunches] = useLocalStorageState<Record<string, string>>("placement-helper:portal-launches:s1", {});
   const drive = driveList.find((d) => d.id === driveId);
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [stageOverrides, setStageOverrides] = useLocalStorageState<Record<string, string>>("placement-helper:application-stages", {});
   const [confirmations, setConfirmations] = useLocalStorageState<Record<string, ConfirmationFormData>>("placement-helper:confirmations", {});
 
   if (!drive) {
@@ -44,7 +48,6 @@ export default function DriveDetailPage() {
 
   const daysLeft = getDaysUntilDeadline(drive.applicationDeadline);
   const isClosed = drive.status === "Closed" || drive.status === "Completed" || daysLeft < 0;
-  const currentStudent = students.find((student) => student.id === "s1")!;
   const eligibilityIssues = [
     ...(!drive.eligibility.branches.includes(currentStudent.branch) ? [`${currentStudent.branch} is not in the eligible branches`] : []),
     ...(currentStudent.cgpa < drive.eligibility.minCGPA ? [`Your CGPA (${currentStudent.cgpa}) is below ${drive.eligibility.minCGPA}`] : []),
@@ -52,12 +55,25 @@ export default function DriveDetailPage() {
     ...(drive.eligibility.tenthMin && currentStudent.tenthPercent < drive.eligibility.tenthMin ? [`10th marks must be at least ${drive.eligibility.tenthMin}%`] : []),
     ...(drive.eligibility.twelfthMin && currentStudent.twelfthPercent < drive.eligibility.twelfthMin ? [`12th marks must be at least ${drive.eligibility.twelfthMin}%`] : []),
   ];
-  const matchingApplication = applications.find((application) => application.studentId === currentStudent.id && application.driveId === drive.id);
-  const confirmed = Boolean(confirmations[drive.id]) || Boolean(matchingApplication && (stageOverrides[matchingApplication.id] ?? matchingApplication.status) === "Confirmed");
+  const matchingApplication = myApplications.find((application) => application.driveId === drive.id);
+  const confirmed = Boolean(confirmations[drive.id]) || Boolean(matchingApplication && matchingApplication.status === "Confirmed");
 
   const handleConfirm = (data: ConfirmationFormData) => {
     setConfirmations((current) => ({ ...current, [drive.id]: data }));
-    if (matchingApplication) setStageOverrides((current) => ({ ...current, [matchingApplication.id]: "Confirmed" }));
+    const now = new Date().toISOString();
+    const application: Application = {
+      id: matchingApplication?.id ?? `app-${currentStudent.id}-${drive.id}`,
+      studentId: currentStudent.id, studentName: currentStudent.name, studentRollNumber: currentStudent.rollNumber,
+      studentBranch: currentStudent.branch, studentSection: currentStudent.section,
+      driveId: drive.id, driveName: drive.role, companyId: drive.companyId, companyName: drive.companyName,
+      status: "Confirmed", appliedAt: matchingApplication?.appliedAt ?? portalLaunches[drive.id] ?? now,
+      confirmedAt: now, confirmationData: { ...data, confirmedAt: now },
+      followUpCount: matchingApplication?.followUpCount ?? 0, updatedAt: now,
+    };
+    saveApplication(application);
+    if (!notifications.some((notification) => notification.title === `Participation confirmed · ${drive.companyName}`)) {
+      setNotifications((current) => [{ id: `confirm-${drive.id}-${Date.now()}`, title: `Participation confirmed · ${drive.companyName}`, message: `Your participation for ${drive.role} was saved on this device. Complete any remaining steps on the official company portal.`, category: "General", createdAt: now, read: false, driveId: drive.id, companyName: drive.companyName }, ...current]);
+    }
   };
 
   return (
@@ -198,6 +214,7 @@ export default function DriveDetailPage() {
                   ) : (
                     <a
                       href={drive.officialApplyLink}
+                      onClick={() => setPortalLaunches((current) => ({ ...current, [drive.id]: new Date().toISOString() }))}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
@@ -289,6 +306,8 @@ export default function DriveDetailPage() {
         isOpen={showConfirmDialog}
         onClose={() => setShowConfirmDialog(false)}
         onConfirm={handleConfirm}
+        initialData={{ fullName: currentStudent.name, rollNumber: currentStudent.rollNumber, section: currentStudent.section, branch: currentStudent.branch, collegeEmail: currentStudent.email, phone: currentStudent.phone, resumeFileName: currentStudent.resumeFileName ?? "", applicationReferenceId: "", confirmed: false }}
+        onResumeUploaded={(fileName) => setCurrentStudent((current) => ({ ...current, resumeFileName: fileName }))}
       />
     </div>
   );

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useStudentProfile } from "@/lib/studentState";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -20,6 +21,7 @@ const navItems = [
 ];
 
 function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate: () => void }) {
+  const [student] = useStudentProfile();
   return (
     <div className="flex h-full flex-col border-r border-slate-200/70 bg-white">
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
@@ -37,8 +39,8 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
       </nav>
       <div className="border-t border-slate-100 bg-slate-50/50 p-3">
         <Link href="/profile" onClick={onNavigate} className="group flex items-center gap-2.5 rounded-xl border border-transparent p-2 transition-all hover:border-slate-200/80 hover:bg-white">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white shadow-sm">RS</div>
-          <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-slate-800 transition-colors group-hover:text-indigo-600">Rahul Sharma</p><p className="truncate text-[10px] text-slate-400">21CSE102 · CSE-A</p></div>
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white shadow-sm">{student.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</div>
+          <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-slate-800 transition-colors group-hover:text-indigo-600">{student.name}</p><p className="truncate text-[10px] text-slate-400">{student.rollNumber} · {student.branch}-{student.section}</p></div>
         </Link>
       </div>
     </div>

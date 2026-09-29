@@ -8,16 +8,17 @@ import {
   Building2, FileText, Star, Video, Award, TrendingUp,
   ArrowRight, Clock, Bell, Sparkles, CheckCircle2,
 } from "lucide-react";
-import { drives } from "@/lib/data/companies";
-import { applications } from "@/lib/data/applications";
+import { drives as seededDrives } from "@/lib/data/companies";
+import { useLocalStorageState } from "@/lib/useLocalStorageState";
+import { useStudentApplications, useStudentProfile } from "@/lib/studentState";
 import { formatDate, formatPackage, getDaysUntilDeadline } from "@/lib/utils";
 import Link from "next/link";
 
-const CURRENT_STUDENT_ID = "s1";
-
 export default function StudentDashboardPage() {
-  const myApplications = applications.filter((a) => a.studentId === CURRENT_STUDENT_ID);
-  const totalCompanies = drives.length;
+  const { applications: myApplications } = useStudentApplications();
+  const [student] = useStudentProfile();
+  const [drives] = useLocalStorageState("placement-helper:drives", seededDrives);
+  const totalCompanies = new Set(drives.map((drive) => drive.companyId)).size;
   const totalApplications = myApplications.length;
   const shortlisted = myApplications.filter((a) => a.status === "Shortlisted").length;
   const interviews = myApplications.filter((a) => a.status === "Interview").length;
@@ -32,7 +33,7 @@ export default function StudentDashboardPage() {
     <div>
       <StudentHeader
         title="Student Workspace"
-        subtitle="Placement Season 2026 • Welcome back, Rahul"
+        subtitle={`Placement Season 2026 · Welcome back, ${student.name.split(" ")[0]}`}
       />
 
       <div className="p-6 max-w-6xl mx-auto space-y-6">

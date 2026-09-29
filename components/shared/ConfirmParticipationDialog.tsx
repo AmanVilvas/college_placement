@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle, Upload, X, AlertCircle } from "lucide-react";
 import { Drive } from "@/lib/types";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
+import { saveLocalFile } from "@/lib/localFiles";
 
 interface ConfirmParticipationDialogProps {
   drive: Drive;
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (data: ConfirmationFormData) => void;
+  initialData?: Partial<ConfirmationFormData>;
+  onResumeUploaded?: (fileName: string) => void;
 }
 
 export interface ConfirmationFormData {
@@ -41,10 +44,19 @@ export function ConfirmParticipationDialog({
   isOpen,
   onClose,
   onConfirm,
+  initialData,
+  onResumeUploaded,
 }: ConfirmParticipationDialogProps) {
   const [form, setForm] = useState<ConfirmationFormData>(INITIAL_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Partial<ConfirmationFormData>>({});
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setForm({ ...INITIAL_FORM, ...initialData, confirmed: false });
+    setSubmitted(false);
+    setErrors({});
+  }, [isOpen, drive.id]);
 
   if (!isOpen) return null;
 
@@ -55,7 +67,7 @@ export function ConfirmParticipationDialog({
     if (!form.section.trim()) errs.section = "Section is required";
     if (!form.branch.trim()) errs.branch = "Branch is required";
     if (!form.collegeEmail.trim() || !form.collegeEmail.includes("@")) errs.collegeEmail = "Valid college email required";
-    if (!form.phone.trim() || form.phone.length < 10) errs.phone = "Valid phone number required";
+    if (!/^\+?[0-9 ()-]{10,18}$/.test(form.phone.trim()) || form.phone.replace(/\D/g, "").length < 10) errs.phone = "Enter a valid phone number";
     if (!form.resumeFileName.trim()) errs.resumeFileName = "Please upload your resume";
     if (!form.confirmed) errs.confirmed = "Please check the confirmation box";
     return errs;
@@ -72,11 +84,21 @@ export function ConfirmParticipationDialog({
     onConfirm(form);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024 || !/\.(pdf|doc|docx)$/i.test(file.name)) {
+      setErrors((err) => ({ ...err, resumeFileName: "Choose a PDF or DOC/DOCX file smaller than 5 MB." }));
+      return;
+    }
+    try {
+      await saveLocalFile("student-resume:s1", file);
       setForm((f) => ({ ...f, resumeFileName: file.name }));
       setErrors((err) => ({ ...err, resumeFileName: "" }));
+      onResumeUploaded?.(file.name);
+    } catch (error) {
+      setErrors((err) => ({ ...err, resumeFileName: error instanceof Error ? error.message : "Could not save this file locally." }));
     }
   };
 
