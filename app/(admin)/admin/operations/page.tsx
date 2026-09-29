@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
+import { AICareerPanel } from "@/components/shared/AICareerPanel";
 import { useLocalStorageState } from "@/lib/useLocalStorageState";
 import { applications } from "@/lib/data/applications";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -14,7 +15,7 @@ import {
   FileSpreadsheet, Mail, Plus, Search, ShieldCheck, SlidersHorizontal, Users,
 } from "lucide-react";
 
-const panels = ["Command center", "Candidate ATS", "Employer CRM", "Policies & eligibility", "Interviews & drive day", "Assessments & offers", "Drive analyzer", "Reports & data", "Communications & audit", "Employer discovery", "TPO insight assistant"] as const;
+const panels = ["Command center", "Candidate ATS", "Employer CRM", "Policies & eligibility", "Interviews & drive day", "Assessments & offers", "Drive analyzer", "Reports & data", "Communications & audit", "Employer discovery", "TPO insight assistant", "AI copilot"] as const;
 type Panel = (typeof panels)[number];
 type Contact = { id: string; company: string; name: string; email: string; nextFollowUp: string; notes: string[] };
 type Interview = { id: string; candidate: string; company: string; round: string; date: string; time: string; room: string };
@@ -121,6 +122,13 @@ export default function AdminOperationsPage() {
 
   const eligibleStudents = students.filter((student) => student.branch === "CSE" && student.cgpa >= 8 && student.backlogs === 0);
   const blocked = Number(policyCheck.cgpa) < 6 || (data.policies.noActiveBacklogs && Number(policyCheck.backlogs) > 0) || (data.policies.blockAfterPlacement && policyCheck.placed) || Number(policyCheck.appsToday) >= data.policies.maxAppsPerDay || (policyCheck.package && Number(policyCheck.package) < data.policies.dreamThresholdLPA);
+  const copilotContext = JSON.stringify({
+    applicationStageCounts: Object.fromEntries([...new Set(effectiveApplications.map((item) => item.status))].map((status) => [status, effectiveApplications.filter((item) => item.status === status).length])),
+    pendingConfirmationCount: pending,
+    driveCount: drives.length,
+    activeDriveCount: drives.filter((drive) => drive.status === "Open" || drive.status === "Closing Soon").length,
+    eligibleCseSampleCount: eligibleStudents.length,
+  });
 
   function askTpoAssistant() {
     const query = copilotPrompt.toLowerCase();
@@ -183,6 +191,8 @@ export default function AdminOperationsPage() {
         ].map((insight) => <div key={insight.title} className="rounded-xl border border-slate-100 p-4"><p className="text-sm font-semibold text-slate-800">{insight.title}</p><p className="mt-1 text-xs leading-5 text-slate-500">{insight.body}</p></div>); })()}</div><p className="mt-4 text-[10px] leading-4 text-slate-400">These are descriptive checks, not an AI-generated analysis. Status counts are snapshot records, not reconstructed event funnels.</p></div></section>}
 
         {panel === "Employer discovery" && <section className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><div className="flex items-center gap-2"><Building2 className="h-5 w-5 text-indigo-600"/><h3 className="font-bold text-slate-900">Employer discovery</h3></div><p className="mt-1 text-xs text-slate-500">Recommendations use only internal sample history. No live hiring signal is available.</p></div><label className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400"/><input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Search by company or industry" className="rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-xs"/></label></div><div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{companies.filter((company) => `${company.name} ${company.industry}`.toLowerCase().includes(filter.toLowerCase())).map((company) => { const history = drives.filter((drive) => drive.companyId === company.id); const hires = applications.filter((application) => application.companyId === company.id && ["Selected", "Placed"].includes(application.status)).length; return <article key={company.id} className="rounded-xl border border-slate-100 p-4"><div className="flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white" style={{ backgroundColor: company.logoColor }}>{company.name.slice(0, 2).toUpperCase()}</span><div><b className="text-sm text-slate-900">{company.name}</b><p className="text-[10px] text-slate-500">{company.industry}</p></div></div><p className="mt-3 text-xs leading-5 text-slate-600">Recommended because {history.length ? `the college has ${history.length} recorded drive${history.length === 1 ? "" : "s"} and ${hires} sample selection${hires === 1 ? "" : "s"}.` : "the sample database includes this company; no campus hiring history is recorded yet."}</p><p className="mt-2 text-[10px] text-slate-400">Roles: {history.length ? [...new Set(history.map((drive) => drive.role))].join(", ") : "No recorded role"} · Source: local sample history</p><button onClick={() => { setPanel("Employer CRM"); setContactForm({ ...contactForm, company: company.name }); }} className="mt-3 rounded-lg bg-slate-900 px-3 py-2 text-[10px] font-semibold text-white">Add recruiter contact</button></article>; })}</div></section>}
+
+        {panel === "AI copilot" && <AICareerPanel mode="tpo" context={copilotContext}/>}
 
         {panel === "TPO insight assistant" && <section className="grid gap-5 lg:grid-cols-[1fr_300px]"><div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><div className="flex items-center gap-2"><Activity className="h-5 w-5 text-indigo-600"/><h3 className="font-bold text-slate-900">TPO insight assistant preview</h3></div><p className="mt-1 text-xs leading-5 text-slate-500">Local, rule-based answers using the sample roster and browser-updated candidate stages. It does not execute actions or call an AI service.</p><textarea value={copilotPrompt} onChange={(event) => setCopilotPrompt(event.target.value)} rows={3} placeholder="Ask about eligible students, pending confirmations, funnel counts, or a recruiter follow-up" className="mt-4 w-full rounded-lg border border-slate-200 p-3 text-sm"/><button onClick={askTpoAssistant} disabled={!copilotPrompt.trim()} className="mt-3 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-40">Get a data-backed preview</button>{copilotAnswer && <div aria-live="polite" className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm leading-6 text-indigo-950">{copilotAnswer}</div>}</div><div className="rounded-2xl border border-slate-200 bg-white p-5"><h3 className="font-bold text-slate-900">Suggested questions</h3>{["Show CSE students with CGPA above 8", "Who has not confirmed participation?", "Summarize the placement funnel", "Draft an email to a recruiter"].map((question) => <button key={question} onClick={() => setCopilotPrompt(question)} className="mt-3 block w-full rounded-lg border border-slate-200 p-3 text-left text-xs text-slate-600 hover:bg-slate-50">{question}</button>)}<p className="mt-4 text-[10px] leading-4 text-slate-400">Production AI needs a protected service, structured data access, access checks, and human approval for actions.</p></div></section>}
         {!ready && <span className="sr-only" aria-live="polite">Loading saved operations data</span>}

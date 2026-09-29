@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { StudentHeader } from "@/components/student/StudentHeader";
+import { AICareerPanel } from "@/components/shared/AICareerPanel";
 import { useLocalStorageState } from "@/lib/useLocalStorageState";
 import { students } from "@/lib/data/students";
 import { companies, drives } from "@/lib/data/companies";
@@ -13,7 +14,7 @@ import {
 } from "lucide-react";
 
 const student = students.find((item) => item.id === "s1")!;
-const areas = ["Preparation", "Role match & resume review", "Assessments", "Resume & portfolio", "Interview practice", "Career coach", "Internship journey", "Alumni & experiences", "Events & cohorts", "Documents & privacy"] as const;
+const areas = ["Preparation", "Role match & resume review", "Assessments", "Resume & portfolio", "Interview practice", "Career coach", "Internship journey", "Alumni & experiences", "Events & cohorts", "Documents & privacy", "AI assessment", "AI resume assistant", "AI interview practice", "AI career coach", "AI study planner"] as const;
 type Area = (typeof areas)[number];
 type WorkspaceData = {
   prep: string[];
@@ -147,6 +148,13 @@ export default function StudentWorkspacePage() {
         <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Career workspace modules">
           {areas.map((item) => <button key={item} role="tab" aria-selected={area === item} onClick={() => setArea(item)} className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-semibold ${area === item ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>{item}</button>)}
         </div>
+
+        {area === "AI assessment" && <AICareerPanel mode="assessment" targetRole={targetDrive?.role}/>}
+        {area === "AI resume assistant" && <AICareerPanel mode="resume" resume={data.savedResume} targetRole={targetDrive?.role} onApplyResume={(draft) => setData((current) => ({ ...current, savedResume: draft }))}/>}
+        {area === "AI resume assistant" && <AICareerPanel mode="resume_review" resume={data.savedResume} targetRole={targetDrive?.role}/>}
+        {area === "AI interview practice" && <AICareerPanel mode="interview" targetRole={targetDrive?.role}/>}
+        {area === "AI career coach" && <AICareerPanel mode="coach" profile={`${student.branch}, year ${student.year}, skills: ${student.skills.join(", ")}`}/>}
+        {area === "AI study planner" && <AICareerPanel mode="study_plan"/>}
 
         {area === "Preparation" && <section className="grid gap-5 lg:grid-cols-[1.4fr_0.8fr]">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><div className="flex items-center gap-2"><BookOpen className="h-5 w-5 text-indigo-600"/><h3 className="font-bold text-slate-900">Your preparation plan</h3></div><p className="mt-1 text-xs text-slate-500">Choose practical tasks to track; no readiness score is invented.</p><div className="mt-5 space-y-2">{preparationTasks.map((task) => <label key={task} className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-100 p-3 hover:bg-slate-50"><input type="checkbox" checked={data.prep.includes(task)} onChange={() => toggleTask(task)} className="h-4 w-4 accent-indigo-600"/><span className={`text-sm ${data.prep.includes(task) ? "text-slate-400 line-through" : "text-slate-700"}`}>{task}</span></label>)}</div></div>
