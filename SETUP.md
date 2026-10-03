@@ -110,6 +110,24 @@ WHERE email = 'your@email.com';
 2. **Admin → Drives → "New Placement Drive"** — set eligibility (branches, min CGPA, max backlogs)
 3. Change drive status to **"Open"** → students immediately see it on their dashboard
 
+## Step 7 — Configure Student Email & WhatsApp
+
+The Admin → **Broadcasts** page sends individual emails to all campus students (or one department) for company drives, placement updates, industry talks, and general notices. Marking an application **Shortlisted** in Admin → Applications saves the status and automatically attempts an email and WhatsApp alert to that student.
+
+Add these server-side environment variables to `.env.local` and your hosting provider. Do not expose provider secrets in `NEXT_PUBLIC_*` variables.
+
+| Variable | Purpose |
+|---|---|
+| `RESEND_API_KEY` | Resend API key for sending email |
+| `RESEND_FROM_EMAIL` | Verified sender, for example `Placement Cell <placements@yourcollege.edu>` |
+| `WHATSAPP_ACCESS_TOKEN` | Meta WhatsApp Cloud API access token |
+| `WHATSAPP_PHONE_NUMBER_ID` | Meta phone number ID |
+| `WHATSAPP_TEMPLATE_NAME` | Approved WhatsApp template name |
+| `WHATSAPP_TEMPLATE_LANGUAGE` | Approved template language code (defaults to `en`) |
+| `WHATSAPP_API_VERSION` | Graph API version (defaults to `v23.0`) |
+
+The WhatsApp template must be approved by Meta and contain **two body text parameters**, in order: `{{1}}` for the alert title and `{{2}}` for the message. Meta requires an approved template for business-initiated messages outside the customer service window. Only send WhatsApp messages to students who have provided the required opt-in. Without the WhatsApp settings, email broadcasts still work; shortlist attempts report channel failures in the admin screen.
+
 ---
 
 ## Handling 20,000+ Simultaneous Users
