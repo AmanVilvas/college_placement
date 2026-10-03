@@ -8,7 +8,7 @@ import { useLocalStorageState } from "@/lib/useLocalStorageState";
 type LocalDocument = { id: string; name: string; key: string; addedAt: string };
 
 export function LocalDocumentChecklist() {
-  const [documents, setDocuments] = useLocalStorageState<LocalDocument[]>("placement-helper:workspace-documents:s1", []);
+  const [documents, setDocuments] = useLocalStorageState<LocalDocument[]>("placement-helper:workspace-documents", []);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 

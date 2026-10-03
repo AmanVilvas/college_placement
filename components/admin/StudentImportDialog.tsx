@@ -25,8 +25,8 @@ type Step = "upload" | "preview" | "importing" | "done";
 
 /** Standard editable fields shown in the inline fix panel */
 const EDITABLE_FIELDS: { key: string; label: string; type?: string; placeholder?: string }[] = [
-  { key: "roll_number", label: "Roll Number / ID", placeholder: "e.g. 21CSE001 or STU-001" },
-  { key: "full_name",   label: "Full Name",   placeholder: "e.g. Rahul Sharma" },
+  { key: "roll_number", label: "Roll Number / ID", placeholder: "Official roll number" },
+  { key: "full_name",   label: "Full Name",   placeholder: "Student full name" },
   { key: "email",       label: "Email Address", type: "email", placeholder: "e.g. rahul@college.edu" },
   { key: "phone",       label: "Phone / Contact", placeholder: "e.g. 9876543210" },
   { key: "department",  label: "Department / Course", placeholder: "e.g. MBA, CSE, Marketing" },
@@ -120,6 +120,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
   };
 
   const handleImport = async () => {
+    if (validatedRows.some((row) => row.errors.length > 0)) return;
     const rows = prepareForImport(validatedRows);
     if (rows.length === 0) return;
     setStep("importing"); setImportError(null);
@@ -136,8 +137,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
       "Roll No", "Full Name", "Email", "Phone", "Department",
       "CGPA", "10th Percentage", "12th Percentage", "Section", "Passout Year"
     ];
-    const sample = ["21MBA01", "Arjun Sharma", "arjun@college.edu", "9876543210", "MBA Finance", "82.5", "88", "84", "A", "2025"];
-    const csv = [headers.join(","), sample.join(",")].join("\n");
+    const csv = headers.join(",");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = document.createElement("a"); a.href = url; a.download = "student_flexible_template.csv"; a.click();
     URL.revokeObjectURL(url);
@@ -357,7 +357,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
                               <AlertTriangle className="w-3 h-3 text-amber-700" />
                               This has problem with details:
                             </span>
-                            {vr.warnings.map((w, wi) => (
+                            {[...vr.errors, ...vr.warnings].map((w, wi) => (
                               <span
                                 key={wi}
                                 className="inline-flex items-center text-[11px] bg-white border border-amber-300 text-amber-800 px-2 py-0.5 rounded-md"
@@ -377,7 +377,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
                                 Write / Edit details for student #{vr.rowIndex}
                               </p>
                               <span className="text-[11px] text-slate-400">
-                                Not forcefully required — you can also save and edit later
+                                Roll number and name are required. Other fields can be updated later.
                               </span>
                             </div>
 
@@ -523,14 +523,14 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
               </button>
               <button
                 onClick={handleImport}
-                disabled={validatedRows.length === 0}
+                disabled={validatedRows.length === 0 || validatedRows.some((row) => row.errors.length > 0)}
                 className="flex-2 flex-grow py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
               >
                 <FileCheck2 className="w-4 h-4" />
                 Import All {validatedRows.length} Students
                 {problemRows.length > 0 && (
                   <span className="bg-indigo-700/60 px-2 py-0.5 rounded text-xs text-indigo-100 font-normal">
-                    ({problemRows.length} can be edited later)
+                    ({problemRows.length} need review)
                   </span>
                 )}
               </button>

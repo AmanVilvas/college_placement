@@ -1,16 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useLocalStorageState } from "@/lib/useLocalStorageState";
-import { ASSESSMENTS_STORAGE_KEY, ASSESSMENT_ATTEMPTS_STORAGE_KEY } from "@/lib/assessmentTypes";
+import { apiMutate, useApiResource } from "@/lib/useApi";
 import type { Assessment, AssessmentAttempt, AssessmentQuestion } from "@/lib/assessmentTypes";
 import { CheckCircle2, Code2, Plus, Send } from "lucide-react";
 
 const emptyChoices = ["", "", "", ""];
 
 export function AssessmentManager() {
-  const [assessments, setAssessments, ready] = useLocalStorageState<Assessment[]>(ASSESSMENTS_STORAGE_KEY, []);
-  const [attempts] = useLocalStorageState<AssessmentAttempt[]>(ASSESSMENT_ATTEMPTS_STORAGE_KEY, []);
+  const { data: assessmentRows, loading: assessmentsLoading, error: assessmentLoadError, refetch: refetchAssessments } = useApiResource<Assessment[]>("assessments", {}, { fallback: [] });
+  const { data: attemptRows, loading: attemptsLoading, refetch: refetchAttempts } = useApiResource<AssessmentAttempt[]>("assessment_attempts", {}, { fallback: [] });
+  const assessments = assessmentRows ?? [];
+  const attempts = attemptRows ?? [];
   const [title, setTitle] = useState("");
   const [type, setType] = useState("Technical");
   const [description, setDescription] = useState("");
@@ -35,24 +36,22 @@ export function AssessmentManager() {
     setPrompt(""); setChoices(emptyChoices); setCorrectChoice(0); setError("");
   }
 
-  function saveDraft(event: React.FormEvent) {
+  async function saveDraft(event: React.FormEvent) {
     event.preventDefault();
     if (!title.trim()) { setError("Give the assessment a title."); return; }
     if (!questions.length) { setError("Add at least one question before saving."); return; }
-    const assessment: Assessment = {
-      id: crypto.randomUUID(), title: title.trim(), type, description: description.trim(),
-      durationMinutes: Math.max(1, durationMinutes), status: "Draft", questions,
-      createdAt: new Date().toISOString(),
-    };
-    setAssessments((current) => [assessment, ...current]);
-    setTitle(""); setDescription(""); setDurationMinutes(30); setQuestions([]); setError("");
+    try {
+      await apiMutate("POST", "assessments", { title: title.trim(), type, description: description.trim(),
+        durationMinutes: Math.max(1, durationMinutes), status: "Draft", questions });
+      await refetchAssessments();
+      setTitle(""); setDescription(""); setDurationMinutes(30); setQuestions([]); setError("");
+    } catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Could not save assessment."); }
   }
 
-  function togglePublished(assessment: Assessment) {
+  async function togglePublished(assessment: Assessment) {
     const nextStatus = assessment.status === "Published" ? "Draft" : "Published";
-    setAssessments((current) => current.map((item) => item.id === assessment.id
-      ? { ...item, status: nextStatus, publishedAt: nextStatus === "Published" ? new Date().toISOString() : undefined }
-      : item));
+    try { await apiMutate("PATCH", `assessments/${assessment.id}`, { status: nextStatus }); await refetchAssessments(); }
+    catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Could not update assessment status."); }
   }
 
   const selectedAttempt = sortedAttempts.find((attempt) => attempt.id === selectedAttemptId);
@@ -83,19 +82,19 @@ export function AssessmentManager() {
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
         <h3 className="font-bold text-slate-900">Assessment library</h3><p className="mt-1 text-xs text-slate-500">Publish a saved assessment to make it available in student Preparation and Assessments tabs.</p>
-        {!ready ? <p className="mt-4 text-xs text-slate-500">Loading assessments…</p> : assessments.length === 0 ? <p className="mt-4 rounded-xl bg-slate-50 p-4 text-xs text-slate-500">No assessments created yet.</p> : <div className="mt-4 space-y-2">{assessments.map((assessment) => <article key={assessment.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 p-4"><div className="min-w-0 flex-1"><h4 className="text-sm font-bold text-slate-900">{assessment.title}</h4><p className="mt-1 text-xs text-slate-500">{assessment.type} · {assessment.questions.length} questions ({assessment.questions.filter((question) => question.kind === "coding").length} coding) · {assessment.durationMinutes} min</p></div><span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${assessment.status === "Published" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{assessment.status}</span><button type="button" onClick={() => togglePublished(assessment)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">{assessment.status === "Published" ? "Unpublish" : "Publish"}</button></article>)}</div>}
+        {assessmentsLoading ? <p className="mt-4 text-xs text-slate-500">Loading assessments…</p> : assessmentLoadError ? <p role="alert" className="mt-4 rounded-xl bg-rose-50 p-4 text-xs text-rose-700">{assessmentLoadError}</p> : assessments.length === 0 ? <p className="mt-4 rounded-xl bg-slate-50 p-4 text-xs text-slate-500">No assessments created yet.</p> : <div className="mt-4 space-y-2">{assessments.map((assessment) => <article key={assessment.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 p-4"><div className="min-w-0 flex-1"><h4 className="text-sm font-bold text-slate-900">{assessment.title}</h4><p className="mt-1 text-xs text-slate-500">{assessment.type} · {assessment.questions.length} questions ({assessment.questions.filter((question) => question.kind === "coding").length} coding) · {assessment.durationMinutes} min</p></div><span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${assessment.status === "Published" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{assessment.status}</span><button type="button" onClick={() => void togglePublished(assessment)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">{assessment.status === "Published" ? "Unpublish" : "Publish"}</button></article>)}</div>}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="flex items-center gap-2"><Send className="h-5 w-5 text-indigo-600"/><h3 className="font-bold text-slate-900">Student submissions</h3></div>
+        <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><Send className="h-5 w-5 text-indigo-600"/><h3 className="font-bold text-slate-900">Student submissions</h3></div><button type="button" onClick={() => void refetchAttempts()} className="rounded-lg border border-slate-200 px-3 py-1.5 text-[10px] font-semibold text-slate-600">Refresh submissions</button></div>
         <p className="mt-1 text-xs text-slate-500">Review submitted answers and source code. MCQ scores are calculated; code is for manual review.</p>
-        {sortedAttempts.length === 0 ? <p className="mt-4 rounded-xl bg-slate-50 p-4 text-xs text-slate-500">No student submissions yet.</p> : <div className="mt-4 space-y-3">{sortedAttempts.map((attempt) => {
+        {attemptsLoading ? <p className="mt-4 text-xs text-slate-500">Loading submissions…</p> : sortedAttempts.length === 0 ? <p className="mt-4 rounded-xl bg-slate-50 p-4 text-xs text-slate-500">No student submissions yet.</p> : <div className="mt-4 space-y-3">{sortedAttempts.map((attempt) => {
           const assessment = assessments.find((item) => item.id === attempt.assessmentId);
           return <details key={attempt.id} className="rounded-xl border border-slate-200 p-4"><summary onClick={() => setSelectedAttemptId(attempt.id)} className="cursor-pointer list-none"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold text-slate-900">{attempt.studentName} <span className="font-normal text-slate-500">· {attempt.studentRollNumber}</span></p><p className="mt-1 text-xs text-slate-500">{assessment?.title ?? "Assessment removed"} · {new Date(attempt.submittedAt).toLocaleString()}</p></div><span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold text-indigo-700">MCQ {attempt.mcqScore}/{attempt.mcqTotal}</span></div></summary><div className="mt-4 space-y-3 border-t border-slate-100 pt-4">{assessment?.questions.map((question, index) => <div key={question.id} className="rounded-lg bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-800">{index + 1}. {question.prompt}</p>{question.kind === "coding" ? <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-950 p-3 font-mono text-xs text-emerald-100">{attempt.answers[question.id] || "No code submitted"}</pre> : <p className="mt-2 text-xs text-slate-600">Answer: {question.choices?.[Number(attempt.answers[question.id])] ?? "No answer"}{Number(attempt.answers[question.id]) === question.correctChoice && <span className="ml-2 font-semibold text-emerald-700">Correct</span>}</p>}</div>)}{!assessment && <p className="text-xs text-rose-600">The question set for this submission is no longer available.</p>}</div></details>;
         })}</div>}
         {selectedAttempt && selectedAssessment && <span className="sr-only">Reviewing {selectedAssessment.title}</span>}
       </section>
-      <p className="text-[10px] leading-4 text-slate-400">Demo persistence is browser-local. Code is stored as submitted and is not run in a sandbox.</p>
+      <p className="text-[10px] leading-4 text-slate-400">Assessment definitions and submissions are shared through the campus database. Code is stored for review and is not run in a sandbox.</p>
     </div>
   );
 }

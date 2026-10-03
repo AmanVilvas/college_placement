@@ -5,7 +5,6 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { AddDriveDialog } from "@/components/admin/AddDriveDialog";
-import { companies as dummyCompanies, drives as dummyDrives } from "@/lib/data/companies";
 import { useApiResource, apiMutate } from "@/lib/useApi";
 import { Drive, DriveStatus } from "@/lib/types";
 import { formatPackage, formatDate, getDaysUntilDeadline } from "@/lib/utils";
@@ -93,12 +92,9 @@ export default function AdminDrivesPage() {
     refetch: refetchCompanies,
   } = useApiResource<ApiCompany[]>("companies", { archived: "eq.false", select: "id,name,metadata", limit: "200" }, { fallback: [] });
 
-  const drivesList: Drive[] = (apiDrives && apiDrives.length > 0)
-    ? apiDrives.map(apiDriveToLocalDrive)
-    : (drivesLoading ? [] : dummyDrives);
+  const drivesList: Drive[] = (apiDrives ?? []).map(apiDriveToLocalDrive);
 
-  const companyOptions = (apiCompanies && apiCompanies.length > 0)
-    ? apiCompanies.map((c) => ({
+  const companyOptions = (apiCompanies ?? []).map((c) => ({
         id: c.id,
         name: c.name,
         logoColor: c.metadata?.logoColor ?? "#6366f1",
@@ -106,8 +102,7 @@ export default function AdminDrivesPage() {
         description: "",
         industry: "",
         drives: [],
-      }))
-    : dummyCompanies;
+      }));
 
   const filtered = drivesList.filter((d) => {
     const matchesSearch =
@@ -133,12 +128,13 @@ export default function AdminDrivesPage() {
           drive_date: newDrive.driveDate,
           status: newDrive.status ?? "Open",
           official_apply_link: newDrive.officialApplyLink,
+          description: newDrive.jobDescription,
           eligibility: newDrive.eligibility ?? {},
           required_skills: newDrive.requiredSkills ?? [],
         });
         refetchDrives();
       } catch (err) {
-        alert((err as Error).message);
+        throw err;
       }
     },
     [refetchDrives]
@@ -148,7 +144,7 @@ export default function AdminDrivesPage() {
     async (driveId: string, newStatus: DriveStatus) => {
       setUpdatingId(driveId);
       try {
-        await apiMutate("PATCH", `drives?id=eq.${driveId}`, { status: newStatus });
+        await apiMutate("PATCH", `drives/${driveId}`, { status: newStatus });
         refetchDrives();
       } catch (err) {
         alert((err as Error).message);
@@ -172,11 +168,11 @@ export default function AdminDrivesPage() {
       />
 
       <div className="p-6 space-y-6">
-        {/* Live Supabase connection indicator */}
+        {/* Database connection status */}
         <div className="flex items-center justify-between">
-          <div className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 shadow-2xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Connected to Supabase (Live Database 24/7)
+          <div className={`inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full border shadow-2xs ${drivesError ? "text-rose-700 bg-rose-50 border-rose-200" : "text-emerald-700 bg-emerald-50 border-emerald-200"}`}>
+            <span className={`w-2 h-2 rounded-full ${drivesError ? "bg-rose-500" : drivesLoading ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} />
+            {drivesError ? "Database unavailable" : drivesLoading ? "Connecting to placement database…" : "Connected to placement database"}
           </div>
           <button
             onClick={refetchDrives}

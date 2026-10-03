@@ -23,6 +23,10 @@ interface ApiDrive {
   companies?: { name: string; metadata?: { logoColor?: string } };
 }
 
+interface ApiCompany {
+  id: string;
+}
+
 interface ApiStudentProfile {
   id: string;
 }
@@ -35,6 +39,10 @@ interface ApiApplication {
 }
 
 export default function AdminDashboardPage() {
+  const { data: companyData, loading: companyLoading } = useApiResource<ApiCompany[]>(
+    "companies", { select: "id", archived: "eq.false", limit: "5000" }, { fallback: [] }
+  );
+
   const { data: studentData, loading: studLoading } = useApiResource<ApiStudentProfile[]>(
     "student_profiles", { select: "id", limit: "5000" }, { fallback: [] }
   );
@@ -55,6 +63,7 @@ export default function AdminDashboardPage() {
     ((studentData && studentData.length > 0) || (driveData && driveData.length > 0));
 
   const totalStudents = studentData?.length ?? 0;
+  const totalCompanies = companyData?.length ?? 0;
   const totalDrives = driveData?.length ?? 0;
   const activeDrives = (driveData ?? []).filter((d) => d.status === "Open" || d.status === "Closing Soon");
   const totalApplications = appData?.length ?? 0;
@@ -150,7 +159,7 @@ export default function AdminDashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatsCard
             title="Partner Companies"
-            value={driveLoading ? "—" : totalDrives}
+            value={companyLoading ? "—" : totalCompanies}
             subtitle="Recruiting partners"
             icon={Building2}
           />

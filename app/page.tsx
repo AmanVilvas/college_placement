@@ -190,12 +190,12 @@ export default function HomePage() {
                 <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-zinc-200/80">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-[#00a4ef] flex items-center justify-center text-white font-bold text-xs">
-                        MS
+                      <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs">
+                        Co
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-zinc-900">Microsoft IDC</p>
-                        <p className="text-[10px] text-zinc-500">Software Development Engineer • ₹45.0 LPA</p>
+                        <p className="text-xs font-bold text-zinc-900">Company drive</p>
+                        <p className="text-[10px] text-zinc-500">Role, package, and eligibility details</p>
                       </div>
                     </div>
                     <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
@@ -208,7 +208,7 @@ export default function HomePage() {
                       <ExternalLink className="w-3.5 h-3.5" />
                       Apply on Official Portal ↗
                     </button>
-                    <p className="text-[10px] text-center text-zinc-400">Complete application on Microsoft Careers</p>
+                    <p className="text-[10px] text-center text-zinc-400">Complete the application on the official site</p>
 
                     <button className="w-full bg-indigo-600 text-white text-xs font-semibold py-2.5 rounded-lg flex items-center justify-center gap-1.5 shadow-2xs">
                       <CheckCircle2 className="w-3.5 h-3.5" />
@@ -248,51 +248,7 @@ export default function HomePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100">
-                    <tr className="hover:bg-zinc-50/60">
-                      <td className="px-4 py-3 font-semibold text-zinc-900">Rahul Sharma (CSE-A)</td>
-                      <td className="px-3 py-3 font-mono text-zinc-500">21CSE102</td>
-                      <td className="px-3 py-3 font-medium text-zinc-800">Microsoft</td>
-                      <td className="px-3 py-3">
-                        <span className="text-[10px] font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-full">
-                          Not Confirmed
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-md">
-                          Follow Up
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-zinc-50/60">
-                      <td className="px-4 py-3 font-semibold text-zinc-900">Sneha Gupta (IT-A)</td>
-                      <td className="px-3 py-3 font-mono text-zinc-500">21IT201</td>
-                      <td className="px-3 py-3 font-medium text-zinc-800">Deloitte</td>
-                      <td className="px-3 py-3">
-                        <span className="text-[10px] font-semibold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-full">
-                          Confirmed ✓
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-[11px] font-semibold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-md">
-                          View Receipt
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-zinc-50/60">
-                      <td className="px-4 py-3 font-semibold text-zinc-900">Karan Singh (CSE-B)</td>
-                      <td className="px-3 py-3 font-mono text-zinc-500">21CSE121</td>
-                      <td className="px-3 py-3 font-medium text-zinc-800">Amazon</td>
-                      <td className="px-3 py-3">
-                        <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full">
-                          Shortlisted
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md">
-                          Update Round
-                        </span>
-                      </td>
-                    </tr>
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-zinc-500">Student records appear here after they confirm a campus application.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -494,7 +450,7 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-4 text-[11px] text-zinc-400">
-            <span>Next.js 14+</span>
+            <span>Next.js</span>
             <span>•</span>
             <span>TypeScript</span>
             <span>•</span>
@@ -502,7 +458,7 @@ export default function HomePage() {
             <span>•</span>
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Frontend demo · local sample data
+              Student and company records from the database
             </span>
           </div>
         </div>

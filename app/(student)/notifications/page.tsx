@@ -1,11 +1,11 @@
 "use client";
 
-import { useLocalStorageState } from "@/lib/useLocalStorageState";
+import { apiMutate, useApiResource } from "@/lib/useApi";
 import { StudentHeader } from "@/components/student/StudentHeader";
-import { notifications as initialNotifications } from "@/lib/data/notifications";
 import { formatDateTime } from "@/lib/utils";
 import { Bell, Building2, Clock, Star, Award, Info } from "lucide-react";
 import Link from "next/link";
+import { Notification } from "@/lib/types";
 
 const CATEGORY_ICONS: Record<string, { icon: typeof Bell; color: string; bg: string }> = {
   "New Drive": { icon: Building2, color: "text-indigo-600", bg: "bg-indigo-100" },
@@ -17,15 +17,27 @@ const CATEGORY_ICONS: Record<string, { icon: typeof Bell; color: string; bg: str
 };
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useLocalStorageState("placement-helper:notifications", initialNotifications);
+  const { data: notificationRows, loading, error, refetch } = useApiResource<Notification[]>("notifications", {}, { fallback: [] });
+  const notifications = notificationRows ?? [];
   const unread = notifications.filter((n) => !n.read);
   const read = notifications.filter((n) => n.read);
+
+  async function markRead(id: string) {
+    try { await apiMutate("PATCH", "notifications", { id, read: true }); await refetch(); } catch { /* retain current list; refresh can surface server state */ }
+  }
+
+  async function markAllRead() {
+    await Promise.all(unread.map((notification) => apiMutate("PATCH", "notifications", { id: notification.id, read: true })));
+    await refetch();
+  }
 
   return (
     <div>
       <StudentHeader title="Notifications" subtitle={`${unread.length} unread notifications`} />
       <div className="p-6 space-y-6">
-        {unread.length > 0 && <button onClick={() => setNotifications((current) => current.map((item) => ({ ...item, read: true })))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Mark all as read</button>}
+        {error && <p role="alert" className="rounded-lg bg-rose-50 p-3 text-xs text-rose-700">{error}</p>}
+        {loading && <p className="text-xs text-slate-500">Loading notifications…</p>}
+        {unread.length > 0 && <button onClick={() => void markAllRead()} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Mark all as read</button>}
         {unread.length > 0 && (
           <div>
             <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
@@ -54,7 +66,7 @@ export default function NotificationsPage() {
                       <p className="text-xs text-slate-600 mt-1 leading-relaxed">{notif.message}</p>
                       <p className="text-[10px] text-slate-400 mt-2">{formatDateTime(notif.createdAt)}</p>
                       {notif.driveId && <Link href={`/companies/${notif.driveId}`} className="mt-2 inline-block text-[10px] font-semibold text-indigo-700 hover:underline">View related drive →</Link>}
-                      <button onClick={() => setNotifications((current) => current.map((item) => item.id === notif.id ? { ...item, read: true } : item))} className="mt-2 text-[10px] font-semibold text-indigo-700">Mark as read</button>
+                      <button onClick={() => void markRead(notif.id)} className="mt-2 text-[10px] font-semibold text-indigo-700">Mark as read</button>
                     </div>
                   </div>
                 );

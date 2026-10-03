@@ -1,15 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useLocalStorageState } from "@/lib/useLocalStorageState";
-import { ASSESSMENTS_STORAGE_KEY, ASSESSMENT_ATTEMPTS_STORAGE_KEY } from "@/lib/assessmentTypes";
+import { apiMutate, useApiResource } from "@/lib/useApi";
 import type { Assessment, AssessmentAttempt } from "@/lib/assessmentTypes";
 import type { Student } from "@/lib/types";
 import { ArrowLeft, Code2, FileCode2, ListChecks } from "lucide-react";
 
 export function StudentAssessmentCenter({ student, compact = false }: { student: Student; compact?: boolean }) {
-  const [assessments] = useLocalStorageState<Assessment[]>(ASSESSMENTS_STORAGE_KEY, []);
-  const [attempts, setAttempts] = useLocalStorageState<AssessmentAttempt[]>(ASSESSMENT_ATTEMPTS_STORAGE_KEY, []);
+  const { data: assessmentRows, loading: assessmentsLoading, error: assessmentsError } = useApiResource<Assessment[]>("assessments", {}, { fallback: [] });
+  const { data: attemptRows, refetch: refetchAttempts } = useApiResource<AssessmentAttempt[]>("assessment_attempts", {}, { fallback: [] });
+  const assessments = assessmentRows ?? [];
+  const attempts = attemptRows ?? [];
   const [activeId, setActiveId] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
@@ -23,24 +24,19 @@ export function StudentAssessmentCenter({ student, compact = false }: { student:
     setMessage("");
   }
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!activeAssessment) return;
     if (activeAssessment.questions.some((question) => !answers[question.id]?.trim())) {
       setMessage("Answer every question before submitting.");
       return;
     }
-    const mcqQuestions = activeAssessment.questions.filter((question) => question.kind === "mcq");
-    const mcqScore = mcqQuestions.reduce((score, question) => score + (Number(answers[question.id]) === question.correctChoice ? 1 : 0), 0);
-    const attempt: AssessmentAttempt = {
-      id: crypto.randomUUID(), assessmentId: activeAssessment.id, studentId: student.id,
-      studentName: student.name, studentRollNumber: student.rollNumber, answers,
-      mcqScore, mcqTotal: mcqQuestions.length, submittedAt: new Date().toISOString(),
-    };
-    setAttempts((current) => [attempt, ...current]);
-    setMessage(`Submitted. MCQ result: ${mcqScore}/${mcqQuestions.length}. Coding answers are saved for admin review.`);
-    setActiveId("");
-    setAnswers({});
+    try {
+      const attempt = await apiMutate<{ mcqScore: number; mcqTotal: number }>("POST", "assessment_attempts", { assessment_id: activeAssessment.id, answers });
+      await refetchAttempts();
+      setMessage(`Submitted. MCQ result: ${attempt.mcqScore}/${attempt.mcqTotal}. Coding answers are saved for admin review.`);
+      setActiveId(""); setAnswers({});
+    } catch (submitError) { setMessage(submitError instanceof Error ? submitError.message : "Could not submit this assessment."); }
   }
 
   return (
@@ -49,7 +45,7 @@ export function StudentAssessmentCenter({ student, compact = false }: { student:
       <p className="mt-1 text-xs leading-5 text-slate-500">Take quizzes published by the placement office. Coding submissions are saved for review and are not auto-graded.</p>
 
       {message && <p role="status" className="mt-4 rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800">{message}</p>}
-      {activeAssessment ? (
+      {assessmentsError ? <p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-xs text-rose-700">{assessmentsError}</p> : assessmentsLoading ? <p className="mt-4 text-xs text-slate-500">Loading assessments…</p> : activeAssessment ? (
         <form onSubmit={submit} className="mt-5 space-y-5">
           <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4"><div><h4 className="font-bold text-slate-900">{activeAssessment.title}</h4><p className="mt-1 text-xs text-slate-500">{activeAssessment.description || "Assessment"} · {activeAssessment.durationMinutes} minutes · {activeAssessment.questions.length} questions</p></div><button type="button" onClick={() => setActiveId("")} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600"><ArrowLeft className="h-3.5 w-3.5"/>Back</button></div>
           {activeAssessment.questions.map((question, index) => (

@@ -68,7 +68,7 @@ export default function AdminCompaniesPage() {
       if (!confirm("Archive this company? This hides it from all views.")) return;
       setDeletingId(id);
       try {
-        await apiMutate("PATCH", `companies?id=eq.${id}`, { archived: true });
+        await apiMutate("PATCH", `companies/${id}`, { archived: true });
         refetchCompanies();
       } catch (err) {
         alert((err as Error).message);

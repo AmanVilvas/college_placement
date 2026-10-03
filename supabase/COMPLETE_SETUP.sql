@@ -95,6 +95,7 @@ create table if not exists public.recruiter_contacts (
   phone text,
   title text,
   notes text,
+  next_follow_up date,
   created_at timestamptz not null default now()
 );
 
@@ -147,6 +148,20 @@ create table if not exists public.applications (
   updated_at timestamptz not null default now(),
   unique(student_id, drive_id)
 );
+
+create table if not exists public.follow_up_events (
+  id uuid primary key default gen_random_uuid(),
+  institution_id uuid not null references public.institutions on delete cascade,
+  campus_id uuid not null references public.campuses on delete cascade,
+  drive_id uuid not null references public.drives on delete cascade,
+  student_id uuid not null references public.student_profiles on delete cascade,
+  application_id uuid references public.applications on delete set null,
+  channels jsonb not null default '{}',
+  delivery_result jsonb not null default '{}',
+  created_at timestamptz not null default now()
+);
+create index if not exists follow_up_events_campus_drive_student_idx
+  on public.follow_up_events (campus_id, drive_id, student_id, created_at desc);
 
 create table if not exists public.application_stage_events (
   id uuid primary key default gen_random_uuid(),
@@ -202,6 +217,7 @@ create table if not exists public.interviews (
   institution_id uuid not null references public.institutions on delete cascade,
   campus_id uuid not null references public.campuses on delete cascade,
   application_id uuid not null references public.applications on delete cascade,
+  round text not null default 'Interview',
   interviewer_id uuid references public.profiles,
   starts_at timestamptz not null,
   ends_at timestamptz not null,
@@ -211,6 +227,18 @@ create table if not exists public.interviews (
   created_by uuid references public.profiles,
   created_at timestamptz not null default now(),
   check(ends_at > starts_at)
+);
+
+create table if not exists public.drive_checkins (
+  id uuid primary key default gen_random_uuid(),
+  institution_id uuid not null references public.institutions on delete cascade,
+  campus_id uuid not null references public.campuses on delete cascade,
+  application_id uuid not null unique references public.applications on delete cascade,
+  checked_in boolean not null default true,
+  checked_in_at timestamptz,
+  checked_by uuid references public.profiles,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.interview_feedback (
@@ -243,6 +271,7 @@ create table if not exists public.notifications (
   institution_id uuid not null references public.institutions on delete cascade,
   campus_id uuid not null references public.campuses on delete cascade,
   user_id uuid references public.profiles on delete cascade,
+  student_id uuid references public.student_profiles on delete cascade,
   title text not null,
   message text not null,
   category text not null default 'General',
@@ -405,7 +434,7 @@ ON CONFLICT (institution_id, name) DO NOTHING;
 
 -- 5. Row-Level Security (RLS)
 do $$ declare t text; begin
-  foreach t in array array['institutions','campuses','profiles','student_profiles','companies','recruiter_contacts','employer_interactions','drives','applications','application_stage_events','placement_policies','assessments','assessment_attempts','interviews','interview_feedback','offers','notifications','notification_preferences','documents','cohorts','events','alumni_profiles','interview_experiences','audit_logs'] loop
+  foreach t in array array['institutions','campuses','profiles','student_profiles','companies','recruiter_contacts','employer_interactions','drives','applications','follow_up_events','application_stage_events','placement_policies','assessments','assessment_attempts','interviews','interview_feedback','offers','notifications','notification_preferences','documents','cohorts','events','alumni_profiles','interview_experiences','audit_logs','drive_checkins'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists tenant_read on public.%I', t);
     execute format('drop policy if exists tenant_write on public.%I', t);
@@ -451,7 +480,7 @@ do $$ declare t text; begin
       execute format('create policy tenant_update on public.%I for update to authenticated using (public.can_manage_campus(campus_id))', t);
       execute format('create policy tenant_delete on public.%I for delete to authenticated using (public.can_manage_campus(campus_id))', t);
     elsif t in ('notifications', 'notification_preferences', 'documents') then
-      execute format('create policy tenant_read on public.%I for select to authenticated using (user_id=auth.uid() or user_id is null or public.can_manage_campus(campus_id))', t);
+      execute format('create policy tenant_read on public.%I for select to authenticated using (user_id=auth.uid() or user_id is null or student_id in (select id from public.student_profiles where user_id=auth.uid()) or public.can_manage_campus(campus_id))', t);
       execute format('create policy tenant_write on public.%I for insert to authenticated with check (true)', t);
       execute format('create policy tenant_update on public.%I for update to authenticated using (user_id=auth.uid() or public.can_manage_campus(campus_id))', t);
       execute format('create policy tenant_delete on public.%I for delete to authenticated using (public.can_manage_campus(campus_id))', t);

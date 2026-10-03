@@ -4,10 +4,9 @@
  *
  * Highly flexible schema:
  * - Works with complete sheets (15+ columns) OR simple lists with just 4-5 columns.
- * - If Roll Number or Name column is missing, generates temporary fallbacks so rows
- *   are NEVER forcefully blocked.
- * - Flags any problem field with "This has problem with details" so staff can
- *   either write the details right away in preview or edit them later.
+ * - Never invents roll numbers or student names. Required identity fields must be
+ *   supplied or corrected in the preview before rows can be imported.
+ * - Flags other incomplete details so staff can review them before import.
  */
 
 export type ParsedRow = Record<string, string | number | boolean | string[] | undefined>;
@@ -107,7 +106,7 @@ const COLUMN_MAP: Record<string, string> = {
   // Skills
   skills: "skills", skill_set: "skills", technical_skills: "skills",
 
-  // Serial Number (used as fallback roll number if no roll column exists)
+  // Optional source-file serial number; it is never used as a student identifier.
   s_no: "s_no", sr_no: "s_no", sno: "s_no", sl_no: "s_no", serial_no: "s_no",
 };
 
@@ -167,15 +166,10 @@ function transformRows(rawRows: Record<string, string | number>[]): ParsedRow[] 
     if (mapped) headerMap[h] = mapped;
   }
 
-  const hasRollColumn = Object.values(headerMap).includes("roll_number");
-  const hasSNoColumn = Object.values(headerMap).includes("s_no");
-  const hasNameColumn = Object.values(headerMap).includes("full_name");
-
   return rawRows
-    .map((row, index) => {
+    .map((row) => {
       const out: ParsedRow = {};
       const extraDetails: Record<string, string> = {};
-      let serialVal: string | null = null;
 
       for (const [origKey, val] of Object.entries(row)) {
         if (val === "" || val === undefined || val === null) continue;
@@ -185,7 +179,6 @@ function transformRows(rawRows: Record<string, string | number>[]): ParsedRow[] 
         const mappedKey = headerMap[origKey];
         if (mappedKey) {
           if (mappedKey === "s_no") {
-            serialVal = strVal;
             extraDetails[origKey] = strVal;
           } else if (
             [
@@ -208,31 +201,6 @@ function transformRows(rawRows: Record<string, string | number>[]): ParsedRow[] 
         }
       }
 
-      // 1. Roll number fallback if missing in file
-      if (!out.roll_number || String(out.roll_number).trim() === "") {
-        if (serialVal) {
-          out.roll_number = `STU-${serialVal}`;
-        } else if (out.email && String(out.email).includes("@")) {
-          const emailUser = String(out.email).split("@")[0].toUpperCase();
-          out.roll_number = `TEMP-${emailUser.slice(0, 10)}`;
-        } else {
-          out.roll_number = `ROLL-${String(index + 1).padStart(3, "0")}`;
-        }
-        out._auto_generated_roll = true;
-      }
-
-      // 2. Name fallback if missing in file
-      if (!out.full_name || String(out.full_name).trim() === "") {
-        if (out.email && String(out.email).includes("@")) {
-          const rawName = String(out.email).split("@")[0].replace(/[._]/g, " ");
-          out.full_name = rawName.charAt(0).toUpperCase() + rawName.slice(1);
-        } else {
-          out.full_name = `Student #${index + 1}`;
-        }
-        out._auto_generated_name = true;
-      }
-
-      if (!out.department) out.department = "General";
       if (Object.keys(extraDetails).length > 0) {
         out.extra_fields = JSON.stringify(extraDetails);
       }
@@ -247,34 +215,36 @@ function transformRows(rawRows: Record<string, string | number>[]): ParsedRow[] 
  * If any field does not look right, flags it with:
  * "This has problem with details: <field> - <reason>"
  *
- * NO HARD BLOCKING: Users can write details right now or import anyway and edit later.
+ * Roll number and full name are required. Other incomplete details are warnings.
  */
 export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
   return rows.map((row, i) => {
     const rowIndex = i + 1;
     const warnings: RowWarning[] = [];
-    const errors: RowWarning[] = []; // Intentionally empty to avoid forceful blocking
+    const errors: RowWarning[] = [];
 
     // 1. Roll number check
     const rollStr = String(row.roll_number ?? "").trim();
     if (!rollStr) {
-      warnings.push({
+      errors.push({
         field: "roll_number",
-        message: "This has problem with details: Roll number is missing (auto-assigned ID, can write now or edit later)",
-      });
-    } else if (row._auto_generated_roll || rollStr.startsWith("ROLL-") || rollStr.startsWith("TEMP-")) {
-      warnings.push({
-        field: "roll_number",
-        message: "This has problem with details: Auto-assigned temporary Roll No (can write now or edit later)",
+        message: "Roll number is required. Enter the official student roll number before importing.",
       });
     }
 
     // 2. Name check
     const nameStr = String(row.full_name ?? "").trim();
-    if (!nameStr || row._auto_generated_name || nameStr.startsWith("Student #")) {
-      warnings.push({
+    if (!nameStr) {
+      errors.push({
         field: "full_name",
-        message: "This has problem with details: Student name is missing or placeholder (can write now or edit later)",
+        message: "Student name is required before importing.",
+      });
+    }
+
+    if (!String(row.department ?? "").trim()) {
+      errors.push({
+        field: "department",
+        message: "Department or course is required before importing.",
       });
     }
 
@@ -331,7 +301,7 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
       }
     }
 
-    const hasProblemWithDetails = warnings.length > 0;
+    const hasProblemWithDetails = warnings.length > 0 || errors.length > 0;
 
     return {
       row,
@@ -351,9 +321,6 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
 export function prepareForImport(validatedRows: ValidatedRow[]): ParsedRow[] {
   return validatedRows.map((vr) => {
     const row = { ...vr.row };
-    delete row._auto_generated_roll;
-    delete row._auto_generated_name;
-
     row.has_problem_with_details = vr.hasProblemWithDetails;
     if (vr.warnings.length > 0) {
       row.detail_problems = vr.warnings.map((w) => `${w.field}: ${w.message}`);

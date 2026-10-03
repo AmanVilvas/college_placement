@@ -2,166 +2,101 @@
 
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { StatsCard } from "@/components/shared/StatsCard";
-import { students, getStudentStats } from "@/lib/data/students";
-import { drives, companies } from "@/lib/data/companies";
-import { applications } from "@/lib/data/applications";
-import {
-  TrendingUp, Award, Building2, Users, PieChart, BarChart3,
-  CheckCircle2, ArrowUpRight, ShieldCheck, Zap
-} from "lucide-react";
+import { useApiResource } from "@/lib/useApi";
+import { formatPackage } from "@/lib/utils";
+import { TrendingUp, Award, Building2, Zap } from "lucide-react";
+
+interface ApiStudent { id: string; department?: string }
+interface ApiDrive {
+  id: string; company_id: string; role_title: string; package_lpa?: number;
+  stipend_monthly?: number; companies?: { name?: string };
+}
+interface ApiApplication { id: string; student_id: string; drive_id: string; status: string }
+
+const selectedStatuses = new Set(["Selected", "Placed", "Offer Received"]);
+const stages = ["Applied", "Confirmed", "Shortlisted", "Assessment", "Interview", "Selected", "Placed"];
 
 export default function AdminAnalyticsPage() {
-  const stats = getStudentStats();
-  const placementRate = Math.round((stats.placed / stats.total) * 100);
-
-  // Branch-wise breakdown
-  const branches = ["CSE", "IT", "ECE", "EEE", "ME", "CE", "MCA"];
-  const branchData = branches.map((b) => {
-    const branchStudents = students.filter((s) => s.branch === b);
-    const placedInBranch = branchStudents.filter((s) => s.placementStatus === "Placed").length;
-    const rate = branchStudents.length > 0 ? Math.round((placedInBranch / branchStudents.length) * 100) : 0;
-    return { branch: b, total: branchStudents.length, placed: placedInBranch, rate };
-  });
-
-  // Company-wise selections
-  const companyData = [
-    { name: "Microsoft", package: "45.0 LPA", selections: 2, applications: 8 },
-    { name: "Amazon", package: "38.0 LPA", selections: 1, applications: 12 },
-    { name: "Deloitte", package: "9.75 LPA", selections: 3, applications: 20 },
-    { name: "TCS", package: "3.6 LPA", selections: 2, applications: 15 },
-    { name: "Google (Intern)", package: "1.5L /mo", selections: 1, applications: 6 },
-    { name: "Accenture", package: "4.5 LPA", selections: 1, applications: 14 },
-  ];
-
-  return (
-    <div>
-      <AdminHeader
-        title="Placement Analytics"
-        subtitle="Key recruitment performance indicators, branch metrics, and salary distribution"
-      />
-
-      <div className="p-6 space-y-6">
-        {/* Top KPI row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatsCard
-            title="Placement Rate"
-            value={`${placementRate}%`}
-            subtitle="Overall 2026 Batch"
-            icon={TrendingUp}
-            color="emerald"
-            trend={{ value: 14, label: "vs 2025" }}
-          />
-          <StatsCard
-            title="Highest CTC Offer"
-            value="₹45.0 LPA"
-            subtitle="Microsoft IDC"
-            icon={Award}
-            color="indigo"
-          />
-          <StatsCard
-            title="Average CTC Package"
-            value="₹14.2 LPA"
-            subtitle="Across engineering"
-            icon={Zap}
-            color="purple"
-            trend={{ value: 8, label: "y-o-y" }}
-          />
-          <StatsCard
-            title="Total Offers Rolled"
-            value={stats.placed + 2}
-            subtitle="Including PPOs"
-            icon={Building2}
-            color="cyan"
-          />
-        </div>
-
-        {/* Charts & Analytics Grids */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Branch-wise Placement Percentage */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">Branch-wise Placement Rate</h3>
-                <p className="text-xs text-slate-500">Placement conversion across engineering streams</p>
-              </div>
-              <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">
-                Engineering & MCA
-              </span>
-            </div>
-
-            <div className="space-y-3.5 pt-2">
-              {branchData.map((item) => (
-                <div key={item.branch} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-800">{item.branch} Department</span>
-                    <span className="text-slate-500">
-                      <strong className="text-slate-900">{item.placed}</strong> / {item.total} Placed (<strong>{item.rate}%</strong>)
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2.5 rounded-full transition-all duration-500"
-                      style={{ width: `${item.rate}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Company-wise Selections & Package */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">Company-wise Selections</h3>
-                <p className="text-xs text-slate-500">Top recruiting organizations & offer packages</p>
-              </div>
-              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">
-                Season 2026
-              </span>
-            </div>
-
-            <div className="divide-y divide-slate-50 pt-1">
-              {companyData.map((c) => (
-                <div key={c.name} className="py-2.5 flex items-center justify-between text-xs">
-                  <div>
-                    <p className="font-bold text-slate-900 text-sm">{c.name}</p>
-                    <p className="text-[11px] text-slate-400">{c.applications} applicants registered</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-indigo-600 text-sm">{c.package}</p>
-                    <span className="inline-block text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md mt-0.5">
-                      {c.selections} Selected
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Funnel & Conversion Metrics */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-          <h3 className="font-bold text-slate-900 text-base">Campus Recruitment Funnel Analysis</h3>
-          <p className="text-xs text-slate-500">Tracking friction and drop-off across all selection rounds</p>
-
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
-            {[
-              { label: "1. Eligible Candidates", count: stats.total, percent: "100%", color: "bg-blue-50 text-blue-800" },
-              { label: "2. Form Confirmed", count: 16, percent: "80%", color: "bg-teal-50 text-teal-800" },
-              { label: "3. Shortlisted / Test", count: 11, percent: "55%", color: "bg-amber-50 text-amber-800" },
-              { label: "4. Interview Rounds", count: 7, percent: "35%", color: "bg-purple-50 text-purple-800" },
-              { label: "5. Final Offers", count: stats.placed, percent: `${placementRate}%`, color: "bg-emerald-50 text-emerald-800 font-bold" },
-            ].map((stage, i) => (
-              <div key={stage.label} className={`p-4 rounded-xl border border-slate-100 ${stage.color} space-y-1`}>
-                <span className="text-[11px] font-semibold opacity-80 block">{stage.label}</span>
-                <p className="text-xl font-bold">{stage.count}</p>
-                <span className="text-[10px] opacity-70 block">{stage.percent} conversion</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
+  const { data: students, loading: studentsLoading } = useApiResource<ApiStudent[]>(
+    "student_profiles", { select: "id,department", limit: "5000" }, { fallback: [] }
   );
+  const { data: drives, loading: drivesLoading } = useApiResource<ApiDrive[]>(
+    "drives", { select: "id,company_id,role_title,package_lpa,stipend_monthly,companies(name)", limit: "2000" }, { fallback: [] }
+  );
+  const { data: applications, loading: applicationsLoading } = useApiResource<ApiApplication[]>(
+    "applications", { select: "id,student_id,drive_id,status", limit: "5000" }, { fallback: [] }
+  );
+
+  const studentRows = students ?? [];
+  const driveRows = drives ?? [];
+  const applicationRows = applications ?? [];
+  const selectedApps = applicationRows.filter((application) => selectedStatuses.has(application.status));
+  const placedStudentIds = new Set(selectedApps.map((application) => application.student_id));
+  const placementRate = studentRows.length ? Math.round(placedStudentIds.size / studentRows.length * 100) : 0;
+  const placedPackages = selectedApps.flatMap((application) => {
+    const drive = driveRows.find((item) => item.id === application.drive_id);
+    return drive?.package_lpa == null ? [] : [Number(drive.package_lpa)];
+  });
+  const highestPackage = placedPackages.length ? Math.max(...placedPackages) : 0;
+  const averagePackage = placedPackages.length
+    ? placedPackages.reduce((total, value) => total + value, 0) / placedPackages.length
+    : 0;
+  const departments = [...new Set(studentRows.map((student) => student.department).filter(Boolean))].sort();
+  const branchData = departments.map((department) => {
+    const departmentStudents = studentRows.filter((student) => student.department === department);
+    const placed = departmentStudents.filter((student) => placedStudentIds.has(student.id)).length;
+    return { department, total: departmentStudents.length, placed, rate: departmentStudents.length ? Math.round(placed / departmentStudents.length * 100) : 0 };
+  });
+  const companyData = [...new Map(driveRows.map((drive) => [drive.company_id, drive])).values()].map((drive) => {
+    const companyDriveIds = new Set(driveRows.filter((item) => item.company_id === drive.company_id).map((item) => item.id));
+    const companyApps = applicationRows.filter((application) => companyDriveIds.has(application.drive_id));
+    return {
+      id: drive.company_id,
+      name: drive.companies?.name || "Company",
+      package: formatPackage(drive.package_lpa, drive.stipend_monthly),
+      applicants: companyApps.length,
+      selections: companyApps.filter((application) => selectedStatuses.has(application.status)).length,
+    };
+  });
+  const loading = studentsLoading || drivesLoading || applicationsLoading;
+
+  return <div>
+    <AdminHeader title="Placement Analytics" subtitle="Placement and recruiting metrics from current campus records" />
+    <div className="space-y-6 p-6">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatsCard title="Placement Rate" value={loading ? "—" : `${placementRate}%`} subtitle={`${placedStudentIds.size} of ${studentRows.length} students`} icon={TrendingUp} color="emerald" />
+        <StatsCard title="Highest CTC Offer" value={loading || !highestPackage ? "—" : `₹${highestPackage.toFixed(1)} LPA`} subtitle="From selected or placed applications" icon={Award} color="indigo" />
+        <StatsCard title="Average CTC Package" value={loading || !averagePackage ? "—" : `₹${averagePackage.toFixed(1)} LPA`} subtitle="Recorded full-time offers" icon={Zap} color="purple" />
+        <StatsCard title="Offers Recorded" value={loading ? "—" : selectedApps.length} subtitle="Selected, placed, or offer received" icon={Building2} color="cyan" />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="space-y-4 rounded-2xl border border-slate-100 bg-white p-6">
+          <div><h2 className="font-bold text-slate-900">Placement by department</h2><p className="text-xs text-slate-500">Based on current student and application records</p></div>
+          {branchData.length ? branchData.map((item) => <div key={item.department} className="space-y-1.5">
+            <div className="flex justify-between gap-3 text-xs"><span className="font-semibold text-slate-800">{item.department}</span><span className="text-slate-500">{item.placed} / {item.total} · {item.rate}%</span></div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-indigo-600" style={{ width: `${item.rate}%` }} /></div>
+          </div>) : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No student records available yet.</p>}
+        </section>
+
+        <section className="space-y-4 rounded-2xl border border-slate-100 bg-white p-6">
+          <div><h2 className="font-bold text-slate-900">Company activity</h2><p className="text-xs text-slate-500">Companies with drives and application records</p></div>
+          {companyData.length ? companyData.map((company) => <div key={company.id} className="flex items-center justify-between gap-3 border-b border-slate-50 py-2.5 text-xs">
+            <div><p className="font-bold text-sm text-slate-900">{company.name}</p><p className="text-slate-400">{company.applicants} applicants</p></div>
+            <div className="text-right"><p className="font-semibold text-indigo-600">{company.package}</p><p className="text-emerald-700">{company.selections} selected</p></div>
+          </div>) : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No placement drives have been added yet.</p>}
+        </section>
+      </div>
+
+      <section className="space-y-4 rounded-2xl border border-slate-100 bg-white p-6">
+        <div><h2 className="font-bold text-slate-900">Application stages</h2><p className="text-xs text-slate-500">Counts are snapshots of current application statuses.</p></div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+          {stages.map((stage) => {
+            const count = applicationRows.filter((application) => application.status === stage).length;
+            return <div key={stage} className="rounded-xl border border-slate-100 bg-slate-50 p-4"><span className="text-[11px] font-semibold text-slate-600">{stage}</span><p className="mt-1 text-xl font-bold text-slate-900">{loading ? "—" : count}</p></div>;
+          })}
+        </div>
+      </section>
+    </div>
+  </div>;
 }

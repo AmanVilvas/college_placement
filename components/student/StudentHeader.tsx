@@ -4,9 +4,9 @@ import { Bell, Search, Command } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { notifications as seededNotifications } from "@/lib/data/notifications";
-import { useLocalStorageState } from "@/lib/useLocalStorageState";
+import { useApiResource } from "@/lib/useApi";
 import { useStudentProfile } from "@/lib/studentState";
+import { Notification } from "@/lib/types";
 
 interface StudentHeaderProps {
   title: string;
@@ -18,8 +18,8 @@ export function StudentHeader({ title, subtitle }: StudentHeaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [student] = useStudentProfile();
-  const [notifications] = useLocalStorageState("placement-helper:notifications", seededNotifications);
-  const unreadCount = notifications.filter((item) => !item.read).length;
+  const { data: notifications } = useApiResource<Notification[]>("notifications", {}, { fallback: [] });
+  const unreadCount = (notifications ?? []).filter((item) => !item.read).length;
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); inputRef.current?.focus(); }

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { Pool } from "pg";
 import { ApiError, apiError, authenticate, currentProfile, signOut, setDemoSession } from "@/lib/server/supabase";
-import { students } from "@/lib/data/students";
 
 const schema = z.object({ rollNumber: z.string().trim().min(1).max(64), password: z.string().min(1).max(128) });
 let pool: Pool | undefined;
@@ -35,6 +34,8 @@ export async function POST(request: Request) {
       try {
         const result = await db.query(
           `select s.id as student_id, s.roll_number, s.full_name, s.email, s.user_id,
+                  s.department, s.section, s.year_of_study, s.graduation_year, s.phone,
+                  s.cgpa, s.tenth_percent, s.twelfth_percent, s.backlogs, s.skills,
                   p.email as profile_email, coalesce(p.active, true) as active
            from public.student_profiles s
            left join public.profiles p on p.id = s.user_id
@@ -46,22 +47,39 @@ export async function POST(request: Request) {
         if (studentRow) {
           const studentEmail = studentRow.profile_email || studentRow.email || `${input.rollNumber.toLowerCase()}@college.edu`;
           const studentName = studentRow.full_name || `Student (${input.rollNumber})`;
+          const student = {
+            id: studentRow.student_id,
+            name: studentName,
+            rollNumber: studentRow.roll_number,
+            email: studentEmail,
+            phone: studentRow.phone || "",
+            branch: studentRow.department || "",
+            section: studentRow.section || "",
+            yearOfStudy: studentRow.year_of_study,
+            graduationYear: studentRow.graduation_year,
+            cgpa: studentRow.cgpa == null ? 0 : Number(studentRow.cgpa),
+            tenthPercent: studentRow.tenth_percent == null ? 0 : Number(studentRow.tenth_percent),
+            twelfthPercent: studentRow.twelfth_percent == null ? 0 : Number(studentRow.twelfth_percent),
+            backlogs: studentRow.backlogs ?? 0,
+            skills: studentRow.skills ?? [],
+          };
 
           if (studentRow.user_id) {
             await authenticate(studentEmail, input.password);
             const { profile } = await currentProfile();
             if (profile.role !== "student") { await signOut(); throw new ApiError(401, "Invalid roll number or password."); }
-            return Response.json({ ok: true, student: { name: studentName, rollNumber: input.rollNumber } });
+            return Response.json({ ok: true, student });
           } else {
-            // Student was uploaded from Admin Panel or Supabase Studio
+            // Imported demo accounts use their roll number as the initial password.
+            if (input.password !== input.rollNumber) throw new ApiError(401, "Invalid roll number or password.");
             await setDemoSession({
               id: studentRow.student_id,
               role: "student",
-              rollNumber: input.rollNumber,
+              rollNumber: studentRow.roll_number,
               name: studentName,
               email: studentEmail,
             });
-            return Response.json({ ok: true, student: { name: studentName, rollNumber: input.rollNumber } });
+            return Response.json({ ok: true, student });
           }
         }
       } catch (dbError) {
@@ -70,19 +88,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // Local / fallback student authentication
-    const matched = students.find((s) => s.rollNumber.toLowerCase() === input.rollNumber.toLowerCase());
-    const studentName = matched?.name || `Student (${input.rollNumber})`;
-    const studentEmail = matched?.email || `${input.rollNumber.toLowerCase()}@college.edu`;
-
-    await setDemoSession({
-      id: matched?.id || input.rollNumber,
-      role: "student",
-      rollNumber: input.rollNumber,
-      name: studentName,
-      email: studentEmail,
-    });
-
-    return Response.json({ ok: true, student: { name: studentName, rollNumber: input.rollNumber } });
+    throw new ApiError(401, "No student account was found for that roll number.");
   } catch (error) { return apiError(error); }
 }

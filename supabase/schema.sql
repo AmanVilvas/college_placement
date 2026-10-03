@@ -38,7 +38,7 @@ create table if not exists public.companies (
 create table if not exists public.recruiter_contacts (
   id uuid primary key default gen_random_uuid(), institution_id uuid not null references public.institutions on delete cascade,
   campus_id uuid not null references public.campuses on delete cascade, company_id uuid not null references public.companies on delete cascade,
-  name text not null, email text, phone text, title text, notes text, created_at timestamptz not null default now()
+  name text not null, email text, phone text, title text, notes text, next_follow_up date, created_at timestamptz not null default now()
 );
 create table if not exists public.employer_interactions (
   id uuid primary key default gen_random_uuid(), institution_id uuid not null references public.institutions on delete cascade,
@@ -62,6 +62,13 @@ create table if not exists public.applications (
   confirmation_data jsonb not null default '{}', admin_notes text, applied_at timestamptz not null default now(),
   updated_at timestamptz not null default now(), unique(student_id,drive_id)
 );
+create table if not exists public.follow_up_events (
+  id uuid primary key default gen_random_uuid(), institution_id uuid not null references public.institutions on delete cascade,
+  campus_id uuid not null references public.campuses on delete cascade, drive_id uuid not null references public.drives on delete cascade,
+  student_id uuid not null references public.student_profiles on delete cascade, application_id uuid references public.applications on delete set null,
+  channels jsonb not null default '{}', delivery_result jsonb not null default '{}', created_at timestamptz not null default now()
+);
+create index if not exists follow_up_events_campus_drive_student_idx on public.follow_up_events(campus_id,drive_id,student_id,created_at desc);
 create table if not exists public.application_stage_events (
   id uuid primary key default gen_random_uuid(), institution_id uuid not null references public.institutions on delete cascade,
   campus_id uuid not null references public.campuses on delete cascade, application_id uuid not null references public.applications on delete cascade,
@@ -86,10 +93,16 @@ create table if not exists public.assessment_attempts (
 );
 create table if not exists public.interviews (
   id uuid primary key default gen_random_uuid(), institution_id uuid not null references public.institutions on delete cascade,
-  campus_id uuid not null references public.campuses on delete cascade, application_id uuid not null references public.applications on delete cascade,
+  campus_id uuid not null references public.campuses on delete cascade, application_id uuid not null references public.applications on delete cascade, round text not null default 'Interview',
   interviewer_id uuid references public.profiles, starts_at timestamptz not null, ends_at timestamptz not null,
   location text, meeting_url text, status text not null default 'Scheduled', created_by uuid references public.profiles,
   created_at timestamptz not null default now(), check(ends_at > starts_at)
+);
+create table if not exists public.drive_checkins (
+  id uuid primary key default gen_random_uuid(), institution_id uuid not null references public.institutions on delete cascade,
+  campus_id uuid not null references public.campuses on delete cascade, application_id uuid not null unique references public.applications on delete cascade,
+  checked_in boolean not null default true, checked_in_at timestamptz, checked_by uuid references public.profiles,
+  created_at timestamptz not null default now(), updated_at timestamptz not null default now()
 );
 create table if not exists public.interview_feedback (
   id uuid primary key default gen_random_uuid(), institution_id uuid not null references public.institutions on delete cascade,
@@ -106,6 +119,7 @@ create table if not exists public.offers (
 create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(), institution_id uuid not null references public.institutions on delete cascade,
   campus_id uuid not null references public.campuses on delete cascade, user_id uuid references public.profiles on delete cascade,
+  student_id uuid references public.student_profiles on delete cascade,
   title text not null, message text not null, category text not null default 'General', read_at timestamptz,
   metadata jsonb not null default '{}', created_at timestamptz not null default now()
 );
@@ -220,7 +234,7 @@ end $$;
 -- Enable tenant isolation on every API-exposed table. Students see their own private records;
 -- campus staff manage records only within their assigned campus. Supabase JWT RLS is the boundary.
 do $$ declare t text; begin
-  foreach t in array array['institutions','campuses','profiles','student_profiles','companies','recruiter_contacts','employer_interactions','drives','applications','application_stage_events','placement_policies','assessments','assessment_attempts','interviews','interview_feedback','offers','notifications','notification_preferences','documents','cohorts','events','alumni_profiles','interview_experiences','audit_logs'] loop
+  foreach t in array array['institutions','campuses','profiles','student_profiles','companies','recruiter_contacts','employer_interactions','drives','applications','follow_up_events','application_stage_events','placement_policies','assessments','assessment_attempts','interviews','interview_feedback','offers','notifications','notification_preferences','documents','cohorts','events','alumni_profiles','interview_experiences','audit_logs','drive_checkins'] loop
     execute format('alter table public.%I enable row level security',t);
     execute format('drop policy if exists tenant_read on public.%I',t);
     execute format('drop policy if exists tenant_write on public.%I',t);
@@ -243,8 +257,14 @@ do $$ declare t text; begin
     elsif t='application_stage_events' then
       execute format('create policy tenant_read on public.%I for select to authenticated using (public.can_manage_campus(campus_id) or application_id in (select a.id from public.applications a join public.student_profiles s on s.id=a.student_id where s.user_id=auth.uid()))',t);
       execute format('create policy tenant_write on public.%I for insert to authenticated with check (public.can_manage_campus(campus_id))',t);
+    elsif t='follow_up_events' then
+      execute format('create policy tenant_read on public.%I for select to authenticated using (public.can_manage_campus(campus_id))',t);
+      execute format('create policy tenant_write on public.%I for insert to authenticated with check (public.can_manage_campus(campus_id))',t);
     elsif t='audit_logs' then
       execute format('create policy tenant_read on public.%I for select to authenticated using (public.can_manage_campus(campus_id))',t);
+    elsif t='drive_checkins' then
+      execute format('create policy tenant_read on public.%I for select to authenticated using (public.can_manage_campus(campus_id))',t);
+      execute format('create policy tenant_write on public.%I for all to authenticated using (public.can_manage_campus(campus_id)) with check (public.can_manage_campus(campus_id))',t);
     else
       if t in ('applications','application_stage_events','assessment_attempts','interviews','offers','notifications','notification_preferences','documents','alumni_profiles','interview_experiences') then
         execute format('create policy tenant_read on public.%I for select to authenticated using (public.can_manage_campus(campus_id) or %s)', t,
@@ -254,7 +274,7 @@ do $$ declare t text; begin
             when 'assessment_attempts' then 'student_id in (select s.id from public.student_profiles s where s.user_id=auth.uid())'
             when 'interviews' then 'interviewer_id=auth.uid() or application_id in (select a.id from public.applications a join public.student_profiles s on s.id=a.student_id where s.user_id=auth.uid())'
             when 'offers' then 'application_id in (select a.id from public.applications a join public.student_profiles s on s.id=a.student_id where s.user_id=auth.uid())'
-            when 'notifications' then 'user_id=auth.uid() or user_id is null'
+            when 'notifications' then 'user_id=auth.uid() or user_id is null or student_id in (select id from public.student_profiles where user_id=auth.uid())'
             when 'notification_preferences' then 'user_id=auth.uid()'
             when 'documents' then 'user_id=auth.uid()'
             when 'alumni_profiles' then 'user_id=auth.uid() or consent_public'

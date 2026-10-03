@@ -6,7 +6,6 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { StudentImportDialog } from "@/components/admin/StudentImportDialog";
 import { EditStudentDetailsModal, StudentToEdit } from "@/components/admin/EditStudentDetailsModal";
 import { useApiResource } from "@/lib/useApi";
-import { students as dummyStudents } from "@/lib/data/students";
 import {
   Search, UserCheck, UserX, Clock, Upload, RefreshCw, AlertCircle,
   AlertTriangle, Pencil, Filter
@@ -22,7 +21,8 @@ interface ApiStudentProfile {
   phone?: string;
   department: string;
   section?: string;
-  cgpa?: number;
+  // PostgreSQL numeric values may arrive as strings through the direct DB API.
+  cgpa?: number | string | null;
   backlogs: number;
   graduation_year?: number;
   profile_data?: {
@@ -44,6 +44,7 @@ function normalise(s: ApiStudentProfile): StudentToEdit & {
   const email = s.email || s.profiles?.email || s.profile_data?.email || "";
   const name = s.full_name || s.profiles?.full_name || s.profile_data?.imported_name || "";
   const phone = s.phone || (s.profile_data?.phone as string) || "";
+  const parsedCgpa = Number(s.cgpa ?? 0);
 
   const isTempRoll = s.roll_number.startsWith("TEMP-") || s.roll_number.startsWith("ROLL-");
   const isMissingEmail = !email || !email.includes("@");
@@ -70,7 +71,7 @@ function normalise(s: ApiStudentProfile): StudentToEdit & {
     rollNumber: s.roll_number,
     branch: s.department,
     section: s.section ?? "—",
-    cgpa: s.cgpa ?? 0,
+    cgpa: Number.isFinite(parsedCgpa) ? parsedCgpa : 0,
     backlogs: s.backlogs ?? 0,
     graduationYear: s.graduation_year,
     placementStatus: "Unplaced" as const,
@@ -89,7 +90,7 @@ export default function AdminStudentsDirectoryPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<StudentToEdit | null>(null);
 
-  // Try real API; fall back to dummy data gracefully
+  // The student directory contains only records returned by the database.
   const { data: apiData, loading, error, refetch } = useApiResource<ApiStudentProfile[]>(
     "student_profiles",
     {
@@ -99,25 +100,7 @@ export default function AdminStudentsDirectoryPage() {
     { fallback: [] }
   );
 
-  const displayStudents = (apiData && apiData.length > 0)
-    ? apiData.map(normalise)
-    : (loading ? [] : dummyStudents.map((s) => ({
-        id: s.id,
-        userId: s.id,
-        name: s.name,
-        email: s.email,
-        phone: s.phone,
-        rollNumber: s.rollNumber,
-        branch: s.branch,
-        section: s.section,
-        cgpa: s.cgpa,
-        backlogs: s.backlogs,
-        graduationYear: undefined as number | undefined,
-        placementStatus: s.placementStatus,
-        hasProblemWithDetails: false,
-        detailProblems: [] as string[],
-        rawProfileData: {},
-      })));
+  const displayStudents = (apiData ?? []).map(normalise);
 
   const problemCount = displayStudents.filter((s) => s.hasProblemWithDetails).length;
 
@@ -377,7 +360,10 @@ export default function AdminStudentsDirectoryPage() {
                         </td>
                         <td className="px-3 py-4">
                           {(() => {
-                            const val = student.cgpa ?? 0;
+                            // Supabase/Postgres numeric values can still arrive as strings
+                            // in cached client data, even after normalising the API response.
+                            const parsed = Number(student.cgpa ?? 0);
+                            const val = Number.isFinite(parsed) ? parsed : 0;
                             return (
                               <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${
                                 val >= 8.5 ? "bg-emerald-50 text-emerald-700"

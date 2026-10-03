@@ -57,8 +57,13 @@ export function useApiResource<T = unknown[]>(
   }, [resource, JSON.stringify(params), enabled]); // eslint-disable-line
 
   useEffect(() => {
-    fetchData();
-    return () => abortRef.current?.abort();
+    // Start after the effect commits so fetchData's loading update does not
+    // synchronously schedule another render from inside the effect itself.
+    const timeout = window.setTimeout(() => { void fetchData(); }, 0);
+    return () => {
+      window.clearTimeout(timeout);
+      abortRef.current?.abort();
+    };
   }, [fetchData]);
 
   return { ...state, refetch: fetchData };
@@ -70,7 +75,8 @@ export async function apiMutate<T = unknown>(
   resource: string,
   body?: unknown
 ): Promise<T> {
-  const res = await fetch(`/api/${resource}`, {
+  const resourcePath = resource.split("/").map(encodeURIComponent).join("/");
+  const res = await fetch(`/api/${resourcePath}`, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,

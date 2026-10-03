@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { X, CalendarDays, Plus, Globe, ShieldAlert, Sparkles } from "lucide-react";
+import { X, CalendarDays, Plus, Globe, ShieldAlert, Sparkles, Loader2 } from "lucide-react";
 import { Drive, Branch, JobType, WorkMode, DriveStatus, Company } from "@/lib/types";
-import { companies } from "@/lib/data/companies";
 
 interface AddDriveDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (drive: Partial<Drive>) => void;
+  onAdd: (drive: Partial<Drive>) => Promise<void>;
   companyOptions?: Company[];
 }
 
@@ -19,23 +18,27 @@ const afterDays = (days: number) => {
   return date.toISOString().slice(0, 10);
 };
 
-export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = companies }: AddDriveDialogProps) {
+export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = [] }: AddDriveDialogProps) {
   const [companyId, setCompanyId] = useState(companyOptions[0]?.id || "");
   const [role, setRole] = useState("");
   const [jobType, setJobType] = useState<JobType>("Full-time");
-  const [packageLPA, setPackageLPA] = useState<number | undefined>(12);
+  const [packageLPA, setPackageLPA] = useState<number | undefined>();
   const [stipendMonthly, setStipendMonthly] = useState<number | undefined>(undefined);
-  const [location, setLocation] = useState("Bangalore / Hybrid");
+  const [location, setLocation] = useState("");
   const [workMode, setWorkMode] = useState<WorkMode>("Hybrid");
-  const [openings, setOpenings] = useState(10);
+  const [openings, setOpenings] = useState(1);
   const [applicationDeadline, setApplicationDeadline] = useState(() => afterDays(14));
   const [driveDate, setDriveDate] = useState(() => afterDays(21));
   const [officialApplyLink, setOfficialApplyLink] = useState("");
   const [minCGPA, setMinCGPA] = useState(7.0);
   const [maxBacklogs, setMaxBacklogs] = useState(0);
-  const [selectedBranches, setSelectedBranches] = useState<Branch[]>(["CSE", "IT", "ECE"]);
-  const [skills, setSkills] = useState("DSA, Java, Problem Solving, React");
+  const [selectedBranches, setSelectedBranches] = useState<Branch[]>([]);
+  const [skills, setSkills] = useState("");
   const [jobDescription, setJobDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const selectedCompanyId = companyId || companyOptions[0]?.id || "";
+  const closeDialog = () => { setSubmitError(""); onClose(); };
 
   if (!isOpen) return null;
 
@@ -47,13 +50,17 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = compan
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const comp = companyOptions.find((c) => c.id === companyId);
-    if (!comp || !role.trim() || selectedBranches.length === 0) return;
-
-    onAdd({
-      id: "d_" + Date.now(),
+    const comp = companyOptions.find((c) => c.id === selectedCompanyId);
+    if (!comp) { setSubmitError("Add a company before creating a placement drive."); return; }
+    if (!role.trim()) { setSubmitError("Enter a role title."); return; }
+    if (selectedBranches.length === 0) { setSubmitError("Select at least one eligible branch."); return; }
+    if (!Number.isInteger(openings) || openings < 1) { setSubmitError("Openings must be a positive whole number."); return; }
+    setSaving(true);
+    setSubmitError("");
+    try {
+      await onAdd({
       companyId: comp.id,
       companyName: comp.name,
       companyLogoColor: comp.logoColor,
@@ -67,29 +74,29 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = compan
       applicationDeadline,
       driveDate,
       status: "Open" as DriveStatus,
-      officialApplyLink: officialApplyLink || "https://careers.google.com",
-      jobDescription: jobDescription || `Hiring for ${role} with excellent problem-solving ability and technical proficiency.`,
+      officialApplyLink,
+      jobDescription,
       eligibility: {
         branches: selectedBranches,
         minCGPA,
         maxBacklogs,
-        passOutYear: "2026",
       },
       requiredSkills: skills.split(",").map((s) => s.trim()).filter(Boolean),
-      selectionProcess: ["Online Assessment", "Technical Interview Round", "HR Round"],
-      importantInstructions: [
-        "Carry valid college ID card",
-        "Keep resume updated",
-        "Formals required for in-person rounds",
-      ],
+      selectionProcess: [],
+      importantInstructions: [],
       createdAt: new Date().toISOString(),
-    });
-    onClose();
+      });
+      closeDialog();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Could not publish the placement drive.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { if (!saving) closeDialog(); }} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
         <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-2.5">
@@ -101,7 +108,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = compan
               <p className="text-xs text-slate-500">Configure job role, eligibility, and dual apply links</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+          <button onClick={closeDialog} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -133,10 +140,11 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = compan
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Select Company *</label>
               <select
-                value={companyId}
+                value={selectedCompanyId}
                 onChange={(e) => setCompanyId(e.target.value)}
                 className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
               >
+                <option value="">{companyOptions.length ? "Select a company" : "Add a company first"}</option>
                 {companyOptions.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -277,6 +285,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = compan
                   );
                 })}
               </div>
+              {!selectedBranches.length && <p className="mt-2 text-[11px] text-amber-700">Select one or more branches to publish this drive.</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-1">
@@ -318,19 +327,23 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = compan
             <textarea value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} rows={4} placeholder="Describe responsibilities, qualifications, and the role's impact" className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800" />
           </div>
 
+          {submitError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{submitError}</p>}
+          {!companyOptions.length && <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">No companies are available. Add a company in the Companies page, then return here.</p>}
           <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-slate-100">
             <button
               type="button"
-              onClick={onClose}
+              onClick={closeDialog}
+              disabled={saving}
               className="px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm shadow-indigo-200 transition-colors flex items-center gap-1.5"
+              disabled={saving || !companyOptions.length}
+              className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm shadow-indigo-200 transition-colors flex items-center gap-1.5 disabled:opacity-50"
             >
-              <Plus className="w-4 h-4" /> Publish Placement Drive
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} {saving ? "Publishing…" : "Publish Placement Drive"}
             </button>
           </div>
         </form>

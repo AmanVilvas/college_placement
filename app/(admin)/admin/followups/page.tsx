@@ -3,13 +3,11 @@
 import { useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { applications } from "@/lib/data/applications";
-import { students } from "@/lib/data/students";
-import { drives } from "@/lib/data/companies";
+import { apiMutate, useApiResource } from "@/lib/useApi";
 import { formatDate, getDaysUntilDeadline } from "@/lib/utils";
 import {
-  AlertCircle, Filter, MessageSquare, Eye, RefreshCw,
-  Clock, CheckCircle, XCircle, ChevronDown, Check, UserX,
+  AlertCircle, Filter, MessageSquare, Eye,
+  Clock, CheckCircle, XCircle, ChevronDown, Check, UserX, Loader2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -22,31 +20,61 @@ type FilterState = {
 
 const ALL_STATUSES = ["Not Responded", "Shortlisted", "Assessment", "Interview"];
 
+interface ApiFollowUp {
+  student_id: string;
+  student_name: string;
+  student_roll_number: string;
+  student_branch: string;
+  student_section: string;
+  drive_id: string;
+  drive_name: string;
+  application_deadline: string | null;
+  company_name: string;
+  application_id: string | null;
+  status: string;
+  follow_up_count: number;
+}
+
 export default function FollowUpsPage() {
+  const { data: rows, loading, error, refetch } = useApiResource<ApiFollowUp[]>("followups", {}, { fallback: [] });
   const [filters, setFilters] = useState<FilterState>({
     company: "", branch: "", section: "", status: "",
   });
-  const [markedFollowUp, setMarkedFollowUp] = useState<Set<string>>(new Set());
+  const [pendingFollowUpId, setPendingFollowUpId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState("");
 
-  // Get all apps that need follow-up
-  const followUpApps = applications.filter(
-    (a) => a.status === "Not Responded" || a.status === "Shortlisted" || a.status === "Assessment"
-  );
+  const followUpApps = rows ?? [];
 
   const filtered = followUpApps.filter((app) => {
-    if (filters.company && !app.companyName.toLowerCase().includes(filters.company.toLowerCase())) return false;
-    if (filters.branch && app.studentBranch !== filters.branch) return false;
-    if (filters.section && app.studentSection !== filters.section) return false;
+    if (filters.company && !app.company_name.toLowerCase().includes(filters.company.toLowerCase())) return false;
+    if (filters.branch && app.student_branch !== filters.branch) return false;
+    if (filters.section && app.student_section !== filters.section) return false;
     if (filters.status && app.status !== filters.status) return false;
     return true;
   });
 
-  const companies = Array.from(new Set(applications.map((a) => a.companyName)));
-  const branches = Array.from(new Set(students.map((s) => s.branch)));
+  const companies = Array.from(new Set(followUpApps.map((a) => a.company_name)));
+  const branches = Array.from(new Set(followUpApps.map((application) => application.student_branch).filter(Boolean)));
   const sections = ["A", "B", "C", "D"];
 
-  const handleMarkFollowUp = (appId: string) => {
-    setMarkedFollowUp((prev) => new Set([...prev, appId]));
+  const handleMarkFollowUp = async (candidate: ApiFollowUp) => {
+    const actionId = `${candidate.drive_id}:${candidate.student_id}`;
+    setPendingFollowUpId(actionId);
+    setActionMessage("");
+    try {
+      const result = await apiMutate<{ id: string; delivery: { emailSent: number; whatsappSent: number; failures: { channel: string; error: string }[] } }>("POST", "followups", {
+        driveId: candidate.drive_id, studentId: candidate.student_id, channels: { email: true, whatsapp: false },
+      });
+      const failures = result.delivery.failures.map((failure) => `${failure.channel}: ${failure.error}`).join("; ");
+      setActionMessage(failures
+        ? `Follow-up saved. Email sent: ${result.delivery.emailSent}. ${failures}`
+        : `Reminder sent to ${candidate.student_name}.`);
+      refetch();
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Could not record the follow-up.");
+    } finally {
+      setPendingFollowUpId(null);
+    }
   };
 
   const notResponded = filtered.filter((a) => a.status === "Not Responded").length;
@@ -61,6 +89,8 @@ export default function FollowUpsPage() {
       />
 
       <div className="p-6 space-y-6">
+        {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">Could not load follow-up records: {error}</p>}
+        {actionMessage && <p role="status" className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">{actionMessage}</p>}
         {/* Metric Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="card-clean p-4 flex items-center justify-between">
@@ -170,7 +200,7 @@ export default function FollowUpsPage() {
         {/* Clean Data Table */}
         <div className="card-clean overflow-hidden bg-white">
           <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>Showing <strong>{filtered.length}</strong> candidates requiring follow-up</span>
+            <span>{loading ? "Loading follow-up queue…" : <>Showing <strong>{filtered.length}</strong> eligible students requiring follow-up</>}</span>
             <span className="text-[11px]">Sorted by urgency</span>
           </div>
 
@@ -196,31 +226,31 @@ export default function FollowUpsPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {filtered.map((app) => {
-                    const drive = drives.find((d) => d.id === app.driveId);
-                    const daysLeft = drive ? getDaysUntilDeadline(drive.applicationDeadline) : 0;
-                    const isFollowedUp = markedFollowUp.has(app.id);
+                    const daysLeft = app.application_deadline ? getDaysUntilDeadline(app.application_deadline) : 0;
+                    const actionId = `${app.drive_id}:${app.student_id}`;
+                    const isSending = pendingFollowUpId === actionId;
 
                     return (
                       <tr
-                        key={app.id}
-                        className={`hover:bg-slate-50/70 transition-colors ${isFollowedUp ? "opacity-50" : ""}`}
+                        key={actionId}
+                        className="hover:bg-slate-50/70 transition-colors"
                       >
                         <td className="px-5 py-3.5">
-                          <p className="font-semibold text-slate-900">{app.studentName}</p>
-                          <p className="text-[11px] text-slate-400">{app.studentBranch} • Sec {app.studentSection}</p>
+                          <p className="font-semibold text-slate-900">{app.student_name}</p>
+                          <p className="text-[11px] text-slate-400">{app.student_branch} • Sec {app.student_section}</p>
                         </td>
-                        <td className="px-3 py-3.5 font-mono text-slate-600 font-medium">{app.studentRollNumber}</td>
+                        <td className="px-3 py-3.5 font-mono text-slate-600 font-medium">{app.student_roll_number}</td>
                         <td className="px-3 py-3.5">
-                          <p className="font-semibold text-slate-800">{app.companyName}</p>
-                          <p className="text-[11px] text-slate-400">{app.driveName}</p>
+                          <p className="font-semibold text-slate-800">{app.company_name}</p>
+                          <p className="text-[11px] text-slate-400">{app.drive_name}</p>
                         </td>
                         <td className="px-3 py-3.5">
                           <StatusBadge status={app.status} size="sm" />
                         </td>
                         <td className="px-3 py-3.5">
-                          {drive && (
+                          {app.application_deadline && (
                             <div>
-                              <p className="text-slate-700 font-medium">{formatDate(drive.applicationDeadline)}</p>
+                              <p className="text-slate-700 font-medium">{formatDate(app.application_deadline)}</p>
                               <p className={`text-[10px] font-semibold ${daysLeft <= 3 ? "text-rose-600" : daysLeft <= 7 ? "text-amber-600" : "text-slate-400"}`}>
                                 {daysLeft > 0 ? `${daysLeft}d left` : "Passed"}
                               </p>
@@ -228,41 +258,23 @@ export default function FollowUpsPage() {
                           )}
                         </td>
                         <td className="px-3 py-3.5 text-slate-600 font-medium">
-                          {app.followUpCount}x
+                          {app.follow_up_count}x
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {isFollowedUp ? (
-                              <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
-                                <Check className="w-3.5 h-3.5" /> Followed up
-                              </span>
-                            ) : (
-                              <>
-                                {app.status === "Not Responded" && (
-                                  <button
-                                    onClick={() => handleMarkFollowUp(app.id)}
-                                    className="px-2.5 py-1 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
-                                  >
-                                    <MessageSquare className="w-3 h-3" /> Remind
-                                  </button>
-                                )}
-                                {app.status === "Shortlisted" && (
-                                  <button
-                                    onClick={() => handleMarkFollowUp(app.id)}
-                                    className="px-2.5 py-1 text-xs font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors flex items-center gap-1"
-                                  >
-                                    <RefreshCw className="w-3 h-3" /> Update Round
-                                  </button>
-                                )}
-                                <Link
-                                  href={`/admin/students/${app.studentId}`}
-                                  className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                                  title="View Student"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Link>
-                              </>
-                            )}
+                            <button
+                              onClick={() => void handleMarkFollowUp(app)}
+                              disabled={isSending}
+                              className="px-2.5 py-1 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1 shadow-2xs disabled:opacity-50"
+                            >
+                              {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageSquare className="w-3 h-3" />}
+                              {isSending ? "Sending…" : "Send reminder"}
+                            </button>
+                            {app.application_id && <Link
+                              href={`/admin/students/${app.student_id}`}
+                              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                              title="View Student"
+                            ><Eye className="w-4 h-4" /></Link>}
                           </div>
                         </td>
                       </tr>

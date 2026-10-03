@@ -1,37 +1,60 @@
-import { applications as seededApplications } from "@/lib/data/applications";
-import { students } from "@/lib/data/students";
 import { useLocalStorageState } from "@/lib/useLocalStorageState";
-import type { Application, Student } from "@/lib/types";
+import { useApiResource } from "@/lib/useApi";
+import type { Application, Branch, Section, Student, Year } from "@/lib/types";
 
-export const CURRENT_STUDENT_ID = "s1";
-export const STUDENT_PROFILE_KEY = `placement-helper:student-profile:${CURRENT_STUDENT_ID}`;
-export const STUDENT_APPLICATIONS_KEY = `placement-helper:student-applications:${CURRENT_STUDENT_ID}`;
-export const APPLICATION_STAGES_KEY = "placement-helper:application-stages";
-
+export const STUDENT_PROFILE_KEY = "placement-helper:student-profile";
 export type EditableStudentProfile = Student & { resumeFileName?: string; graduationYear?: number };
 
+const emptyStudentProfile: EditableStudentProfile = {
+  id: "",
+  name: "",
+  rollNumber: "",
+  branch: "CSE" as Branch,
+  section: "A" as Section,
+  year: "1" as Year,
+  email: "",
+  phone: "",
+  cgpa: 0,
+  placementStatus: "Unplaced",
+  skills: [],
+  tenthPercent: 0,
+  twelfthPercent: 0,
+  backlogs: 0,
+  createdAt: "",
+};
+
 export function useStudentProfile() {
-  const initialProfile = students.find((student) => student.id === CURRENT_STUDENT_ID)!;
-  return useLocalStorageState<EditableStudentProfile>(STUDENT_PROFILE_KEY, initialProfile);
+  return useLocalStorageState<EditableStudentProfile>(STUDENT_PROFILE_KEY, emptyStudentProfile);
 }
 
 export function useStudentApplications() {
-  const [extraApplications, setExtraApplications] = useLocalStorageState<Application[]>(STUDENT_APPLICATIONS_KEY, []);
-  const [stageOverrides, setStageOverrides] = useLocalStorageState<Record<string, Application["status"]>>(APPLICATION_STAGES_KEY, {});
-  const applicationMap = new Map<string, Application>();
-  for (const application of [...seededApplications.filter((item) => item.studentId === CURRENT_STUDENT_ID), ...extraApplications]) {
-    applicationMap.set(application.id, application);
-  }
-  const applications = [...applicationMap.values()].map((application) => ({ ...application, status: stageOverrides[application.id] ?? application.status }));
-
-  function updateStatus(applicationId: string, status: Application["status"]) {
-    setStageOverrides((current) => ({ ...current, [applicationId]: status }));
-  }
-
-  function saveApplication(application: Application) {
-    setExtraApplications((current) => [application, ...current.filter((item) => item.id !== application.id)]);
-    updateStatus(application.id, application.status);
-  }
-
-  return { applications, updateStatus, saveApplication };
+  const { data, loading, error, refetch } = useApiResource<Array<{
+    id: string; student_id: string; drive_id: string; status: string; confirmation_data?: Application["confirmationData"];
+    applied_at?: string; updated_at?: string;
+    student_profiles?: { full_name?: string; roll_number?: string; department?: string; section?: string };
+    drives?: { role_title?: string; company_id?: string; companies?: { name?: string } };
+  }>>("applications", {
+    select: "id,status",
+    order: "applied_at.desc",
+    limit: "1000",
+  }, { fallback: [] });
+  const applications: Application[] = (data ?? []).map((row) => ({
+    id: row.id,
+    studentId: row.student_id,
+    studentName: row.confirmation_data?.fullName || row.student_profiles?.full_name || "",
+    studentRollNumber: row.confirmation_data?.rollNumber || row.student_profiles?.roll_number || "",
+    studentBranch: (row.confirmation_data?.specialization || row.student_profiles?.department || "") as Application["studentBranch"],
+    studentSection: row.confirmation_data?.section || row.student_profiles?.section || "",
+    driveId: row.drive_id,
+    driveName: row.drives?.role_title || "",
+    companyId: row.drives?.company_id || "",
+    companyName: row.drives?.companies?.name || "Company",
+    status: row.status as Application["status"],
+    appliedAt: row.applied_at,
+    confirmedAt: row.confirmation_data?.confirmedAt || row.updated_at,
+    confirmationData: row.confirmation_data,
+    followUpCount: 0,
+    updatedAt: row.updated_at || row.applied_at || "",
+  }));
+  return { applications, loading, error, refetch };
 }

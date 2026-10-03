@@ -7,7 +7,6 @@ import { Application, ApplicationStatus } from "@/lib/types";
 import { formatDate, APPLICATION_JOURNEY } from "@/lib/utils";
 import { Search, CheckCircle2, Download, Eye } from "lucide-react";
 import Link from "next/link";
-import { useLocalStorageState } from "@/lib/useLocalStorageState";
 import { useApiResource } from "@/lib/useApi";
 
 interface ApiApplication {
@@ -23,15 +22,14 @@ interface ApiApplication {
 }
 
 export default function AdminApplicationsPage() {
-  const [stageOverrides, setStageOverrides] = useLocalStorageState<Record<string, ApplicationStatus>>("placement-helper:application-stages", {});
-  const { data: rows, loading, error } = useApiResource<ApiApplication[]>("applications", {
+  const { data: rows, loading, error, refetch } = useApiResource<ApiApplication[]>("applications", {
     select: "id,student_id,drive_id,status,confirmation_data,applied_at,updated_at,student_profiles(full_name,roll_number,department,section),drives(role_title,company_id,companies(name))",
     order: "applied_at.desc",
     limit: "1000",
   }, { fallback: [] });
   const applicationsList: Application[] = (rows ?? []).map((row) => {
     const confirmation = row.confirmation_data;
-    const branch = confirmation?.specialization || row.student_profiles?.department || "Unknown";
+    const branch = row.student_profiles?.department || "Unknown";
     return {
       id: row.id,
       studentId: row.student_id,
@@ -43,7 +41,7 @@ export default function AdminApplicationsPage() {
       driveName: row.drives?.role_title || "Placement drive",
       companyId: row.drives?.company_id || "",
       companyName: row.drives?.companies?.name || "Company",
-      status: (stageOverrides[row.id] ?? row.status) as ApplicationStatus,
+      status: row.status as ApplicationStatus,
       appliedAt: row.applied_at,
       confirmedAt: confirmation?.confirmedAt || row.updated_at,
       confirmationData: confirmation,
@@ -80,7 +78,7 @@ export default function AdminApplicationsPage() {
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || "Could not save application status.");
       });
-      setStageOverrides((current) => ({ ...current, [appId]: newStatus }));
+      refetch();
       if (newStatus === "Shortlisted") {
         const response = await fetch("/api/notifications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "shortlist", applicationId: appId }) });
         const data = await response.json().catch(() => ({}));

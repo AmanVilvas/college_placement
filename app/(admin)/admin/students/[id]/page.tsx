@@ -5,11 +5,9 @@ import { useParams } from "next/navigation";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
-import { students } from "@/lib/data/students";
-import { applications as initialApplications } from "@/lib/data/applications";
-import { drives } from "@/lib/data/companies";
 import { Application, ApplicationStatus, PlacementStatus } from "@/lib/types";
-import { formatDate, formatPackage, APPLICATION_JOURNEY, getInitials } from "@/lib/utils";
+import { formatDate, APPLICATION_JOURNEY, getInitials } from "@/lib/utils";
+import { apiMutate, useApiResource } from "@/lib/useApi";
 import {
   ArrowLeft, Mail, Phone, GraduationCap, FileText, CheckCircle2,
   Clock, Award, ChevronRight, Edit3, Check, X, ShieldAlert, Sparkles
@@ -19,17 +17,49 @@ import Link from "next/link";
 export default function AdminStudentDetailPage() {
   const params = useParams();
   const studentId = params.id as string;
-  const student = students.find((s) => s.id === studentId);
-
-  const [studentApps, setStudentApps] = useState<Application[]>(
-    initialApplications.filter((a) => a.studentId === studentId)
-  );
-  const [placementStatus, setPlacementStatus] = useState<PlacementStatus>(
-    student?.placementStatus || "Unplaced"
-  );
+  const { data: studentRows, loading: studentLoading } = useApiResource<Array<{
+    id: string; user_id?: string; roll_number: string; full_name?: string; email?: string;
+    phone?: string; department: string; section?: string; cgpa?: number; backlogs?: number;
+    year_of_study?: number; graduation_year?: number; tenth_percent?: number; twelfth_percent?: number;
+    skills?: string[]; profile_data?: Record<string, unknown>;
+  }>>("student_profiles", { id: `eq.${studentId}`, select: "id,user_id,roll_number,full_name,email,phone,department,section,cgpa,backlogs,year_of_study,graduation_year,tenth_percent,twelfth_percent,skills,profile_data", limit: "1" }, { fallback: [] });
+  const { data: applicationRows, refetch: refetchApplications } = useApiResource<Array<{
+    id: string; student_id: string; drive_id: string; status: string; confirmation_data?: Application["confirmationData"];
+    applied_at?: string; updated_at?: string; student_profiles?: { full_name?: string; roll_number?: string; department?: string; section?: string };
+    drives?: { role_title?: string; company_id?: string; companies?: { name?: string; metadata?: { logoColor?: string } } };
+  }>>("applications", { select: "id,student_id,drive_id,status,confirmation_data,applied_at,updated_at,student_profiles(full_name,roll_number,department,section),drives(role_title,company_id,companies(name,metadata))", limit: "1000" }, { fallback: [] });
+  const studentRow = studentRows?.[0];
+  const student = studentRow ? {
+    id: studentRow.id,
+    name: studentRow.full_name || "",
+    rollNumber: studentRow.roll_number,
+    branch: studentRow.department,
+    section: studentRow.section || "",
+    email: studentRow.email || "",
+    phone: studentRow.phone || "",
+    cgpa: Number(studentRow.cgpa ?? 0),
+    backlogs: studentRow.backlogs ?? 0,
+    tenthPercent: Number(studentRow.tenth_percent ?? 0),
+    twelfthPercent: Number(studentRow.twelfth_percent ?? 0),
+    graduationYear: studentRow.graduation_year,
+  } : undefined;
+  const studentApps: Application[] = (applicationRows ?? []).filter((row) => row.student_id === studentId).map((row) => ({
+    id: row.id, studentId: row.student_id, studentName: row.confirmation_data?.fullName || row.student_profiles?.full_name || student?.name || "",
+    studentRollNumber: row.confirmation_data?.rollNumber || row.student_profiles?.roll_number || student?.rollNumber || "",
+    studentBranch: (row.confirmation_data?.specialization || row.student_profiles?.department || student?.branch || "") as Application["studentBranch"],
+    studentSection: row.confirmation_data?.section || row.student_profiles?.section || student?.section || "",
+    driveId: row.drive_id, driveName: row.drives?.role_title || "", companyId: row.drives?.company_id || "",
+    companyName: row.drives?.companies?.name || "Company", status: row.status as ApplicationStatus,
+    appliedAt: row.applied_at, confirmedAt: row.confirmation_data?.confirmedAt || row.updated_at,
+    confirmationData: row.confirmation_data, followUpCount: 0, updatedAt: row.updated_at || row.applied_at || "",
+  }));
+  const placementStatus: PlacementStatus = studentApps.some((application) => ["Selected", "Placed"].includes(application.status))
+    ? "Placed" : studentApps.length ? "In Process" : "Unplaced";
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<ApplicationStatus>("Applied");
+  const [statusMessage, setStatusMessage] = useState("");
 
+  if (!student && studentLoading) return <div className="p-8 text-center text-slate-500">Loading student…</div>;
   if (!student) {
     return (
       <div className="p-8 text-center">
@@ -41,15 +71,15 @@ export default function AdminStudentDetailPage() {
     );
   }
 
-  const handleUpdateAppStatus = (appId: string, newStatus: ApplicationStatus) => {
-    setStudentApps(
-      studentApps.map((a) => (a.id === appId ? { ...a, status: newStatus, updatedAt: new Date().toISOString() } : a))
-    );
-    // If selected or placed, update student overall status
-    if (newStatus === "Selected" || newStatus === "Placed") {
-      setPlacementStatus("Placed");
+  const handleUpdateAppStatus = async (appId: string, newStatus: ApplicationStatus) => {
+    setStatusMessage("");
+    try {
+      await apiMutate("PATCH", `applications/${appId}`, { status: newStatus });
+      await refetchApplications();
+      setEditingAppId(null);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Could not save application status.");
     }
-    setEditingAppId(null);
   };
 
   return (
@@ -79,7 +109,7 @@ export default function AdminStudentDetailPage() {
                   <h1 className="text-xl font-bold text-slate-900">{student.name}</h1>
                   <StatusBadge status={placementStatus} />
                 </div>
-                <p className="text-xs text-slate-500 font-mono">Roll: {student.rollNumber} • Batch 2022-2026</p>
+              <p className="text-xs text-slate-500 font-mono">Roll: {student.rollNumber} • Graduation year {student.graduationYear ?? "not set"}</p>
                 <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 pt-1">
                   <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5 text-slate-400" />{student.email}</span>
                   <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-slate-400" />{student.phone}</span>
@@ -87,23 +117,13 @@ export default function AdminStudentDetailPage() {
               </div>
             </div>
 
-            {/* Overall Placement Control */}
+            {/* Overall status is derived from persisted application records. */}
             <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/60 space-y-2">
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
                 Overall Placement Status
               </span>
-              <div className="flex items-center gap-2">
-                <select
-                  value={placementStatus}
-                  onChange={(e) => setPlacementStatus(e.target.value as PlacementStatus)}
-                  className="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none"
-                >
-                  <option value="Unplaced">Unplaced</option>
-                  <option value="In Process">In Process</option>
-                  <option value="Placed">Placed 🎉</option>
-                </select>
-                <span className="text-[11px] text-slate-400">Syncs across dashboard</span>
-              </div>
+              <p className="text-xs font-semibold text-slate-800">{placementStatus}</p>
+              <p className="text-[11px] text-slate-400">Calculated from selected or placed applications.</p>
             </div>
           </div>
 
@@ -130,6 +150,8 @@ export default function AdminStudentDetailPage() {
           </div>
         </div>
 
+        {statusMessage && <p role="status" className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">{statusMessage}</p>}
+
         {/* Applications & Placement Journey Tracking Section */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -146,7 +168,6 @@ export default function AdminStudentDetailPage() {
           ) : (
             <div className="space-y-4">
               {studentApps.map((app) => {
-                const drive = drives.find((d) => d.id === app.driveId);
                 const currentStepIdx = APPLICATION_JOURNEY.indexOf(app.status);
                 const isEditing = editingAppId === app.id;
 
@@ -159,7 +180,7 @@ export default function AdminStudentDetailPage() {
                       <div className="flex items-center gap-3">
                         <CompanyLogo
                           name={app.companyName}
-                          logoColor={drive?.companyLogoColor || "#6366f1"}
+                          logoColor="#6366f1"
                           size="md"
                         />
                         <div>

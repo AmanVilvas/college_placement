@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type Update<T> = T | ((previous: T) => T);
 
-/** Browser-only persistence for the frontend demo. This is device-local, not shared or secure storage. */
+/** Browser-only persistence. Values are device-local, not shared or secure storage. */
 export function useLocalStorageState<T>(key: string, initialValue: T) {
   const [value, setValue] = useState<T>(initialValue);
   const valueRef = useRef(value);

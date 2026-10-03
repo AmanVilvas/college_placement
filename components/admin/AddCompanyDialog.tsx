@@ -167,7 +167,7 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Company Name <span className="text-rose-500">*</span>
                 </label>
-                <input type="text" required placeholder="e.g. AU Small Finance Bank, Infosys, Google"
+                <input type="text" required placeholder="Enter company name"
                   value={name} onChange={(e) => setName(e.target.value)} className={inputCls} autoFocus />
               </div>
               <div className="grid grid-cols-2 gap-3">

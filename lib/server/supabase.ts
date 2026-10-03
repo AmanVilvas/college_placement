@@ -250,8 +250,13 @@ export async function developmentDatabaseQuery<T = unknown>(sql: string, values:
     throw new ApiError(503, "Set DATABASE_URL on the server to save shared placement data.");
   }
 
+  // `pg` lets sslmode from the URL override the explicit `ssl` options below.
+  // Remove that conflicting switch and keep the project's TLS options explicit.
+  const poolUrl = new URL(connectionString);
+  poolUrl.searchParams.delete("sslmode");
+
   developmentPool ??= new Pool({
-    connectionString,
+    connectionString: poolUrl.toString(),
     ssl: { rejectUnauthorized: false },
     max: 3,
   });

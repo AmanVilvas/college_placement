@@ -17,15 +17,28 @@ function Login({ admin }: { admin: boolean }) {
     try {
       const response = await fetch(`/api/auth/${admin ? "admin-login" : "student-login"}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(admin ? values : { rollNumber: values.rollNumber, password: values.password }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error ?? "Unable to sign in.");
-      if (!admin && values.rollNumber) {
+      if (!admin && data.student) {
         try {
-          const profileKey = "placement-helper:student-profile:s1";
+          const profileKey = "placement-helper:student-profile";
           const raw = localStorage.getItem(profileKey);
           const current = raw ? JSON.parse(raw) : {};
           localStorage.setItem(profileKey, JSON.stringify({
             ...current,
-            rollNumber: String(values.rollNumber),
-            name: data.student?.name || current.name || `Student (${values.rollNumber})`,
+            id: data.student.id,
+            rollNumber: data.student.rollNumber,
+            name: data.student.name,
+            email: data.student.email || "",
+            phone: data.student.phone || "",
+            branch: data.student.branch || "CSE",
+            section: data.student.section || "A",
+            year: String(data.student.yearOfStudy || "1"),
+            graduationYear: data.student.graduationYear || undefined,
+            cgpa: data.student.cgpa || 0,
+            tenthPercent: data.student.tenthPercent || 0,
+            twelfthPercent: data.student.twelfthPercent || 0,
+            backlogs: data.student.backlogs || 0,
+            skills: data.student.skills || [],
+            placementStatus: current.placementStatus || "Unplaced",
           }));
         } catch {}
       }

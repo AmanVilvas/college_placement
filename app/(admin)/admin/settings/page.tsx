@@ -7,9 +7,9 @@ import { useLocalStorageState } from "@/lib/useLocalStorageState";
 import Link from "next/link";
 
 const initialSettings = {
-  collegeName: "National Institute of Technology & Engineering",
-  academicYear: "2025-2026",
-  activeCampus: "Main Campus",
+  collegeName: "",
+  academicYear: "",
+  activeCampus: "",
   minPlacementCGPA: 6.0,
   allowMultiOffers: true,
   autoReminderDays: 2,
@@ -33,7 +33,7 @@ const capabilities = [
 ] as const;
 
 export default function AdminSettingsPage() {
-  const [settings, setSettings] = useLocalStorageState("placement-helper:settings", initialSettings);
+  const [settings, setSettings] = useLocalStorageState("placement-helper:settings:records-v2", initialSettings);
   const [saved, setSaved] = useState(false);
 
   const handleSave = (e: React.FormEvent) => {

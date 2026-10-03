@@ -194,7 +194,7 @@ export function ConfirmParticipationDialog({
                   type="text"
                   value={form.rollNumber}
                   onChange={(e) => setForm((f) => ({ ...f, rollNumber: e.target.value }))}
-                  placeholder="e.g. 21CSE102"
+                  placeholder="Your campus roll number"
                   className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.rollNumber ? "border-red-300 bg-red-50" : "border-slate-200"}`}
                 />
                 {errors.rollNumber && <p className="text-xs text-red-500 mt-1">{errors.rollNumber}</p>}

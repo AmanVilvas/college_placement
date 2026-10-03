@@ -7,8 +7,13 @@ async function responseError(response: Response) {
 
 export async function sendEmail(to: string, subject: string, text: string) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL;
-  if (!apiKey || !from) throw new Error("Email is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL.");
+  const configuredFrom = process.env.RESEND_FROM_EMAIL?.trim();
+  if (!apiKey || !configuredFrom) throw new Error("Email is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL.");
+  // Accept either a full sender identity or a verified domain from local env.
+  // Resend requires an address; using a domain by itself returns a 400.
+  const from = configuredFrom.includes("@")
+    ? configuredFrom
+    : `Placement Office <placements@${configuredFrom}>`;
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },

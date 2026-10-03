@@ -176,6 +176,20 @@ export async function GET(request: Request, context: { params: Promise<{ resourc
       return Response.json({ data: rows });
     }
 
+    if (localPreview && table === "student_profiles") {
+      const isStudent = profile.role === "student";
+      const rows = await developmentDatabaseQuery(
+        `select s.*, jsonb_build_object('full_name', p.full_name, 'email', p.email) as profiles
+         from public.student_profiles s left join public.profiles p on p.id = s.user_id
+         where s.institution_id = $1 and s.campus_id = $2
+           and (not $3::boolean or s.id::text = $4 or lower(s.roll_number) = lower($5))
+         order by s.full_name asc limit $6 offset $7`,
+        [profile.institution_id, profile.campus_id, isStudent, profile.id, profile.roll_number ?? "",
+          Number(incoming.get("limit") ?? 100), Number(incoming.get("offset") ?? 0)],
+      );
+      return Response.json({ data: rows });
+    }
+
     if (localPreview && table === "applications") {
       if (process.env.NODE_ENV === "production" && profile.role !== "student"
         && !incoming.get("select")?.includes("student_profiles")) {
@@ -248,25 +262,28 @@ export async function POST(request: Request, context: { params: Promise<{ resour
     await authorizeWrite(table, "POST");
     const input = bodySchema.parse(await request.json());
     let record = input;
+    const useDirectDatabase = process.env.NODE_ENV === "production" || isLocalDevelopmentRequest(request);
 
     if (table === "applications") {
       const { profile, user } = await currentProfile();
-      if (profile.role !== "student" && process.env.NODE_ENV !== "production") throw new ApiError(403, "Only students can confirm participation from this form.");
+      const localStudentPreview = isLocalDevelopmentRequest(request);
+      if (profile.role !== "student" && !localStudentPreview) {
+        throw new ApiError(403, "Sign in with your student account to confirm participation.");
+      }
 
       const submitted = applicationRequestSchema.parse(input);
-      const localPreview = process.env.NODE_ENV === "production"
-        || (process.env.NODE_ENV === "development" && isLocalDevelopmentRequest(request));
-      let studentProfile: { id: string; institution_id: string; campus_id: string; roll_number: string } | undefined;
+      const localPreview = useDirectDatabase;
+      let studentProfile: { id: string; institution_id: string; campus_id: string; roll_number: string; department: string | null; cgpa: number | null; backlogs: number } | undefined;
 
       if (!localPreview && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(user.id)) {
         const { body: studentRows } = await databaseRequest(
-          `student_profiles?user_id=eq.${encodeURIComponent(user.id)}&select=id,institution_id,campus_id,roll_number&limit=1`,
+          `student_profiles?user_id=eq.${encodeURIComponent(user.id)}&select=id,institution_id,campus_id,roll_number,department,cgpa,backlogs&limit=1`,
         );
         studentProfile = Array.isArray(studentRows) ? studentRows[0] : undefined;
       } else if (localPreview) {
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(user.id);
-        const studentRows = await developmentDatabaseQuery<{ id: string; institution_id: string; campus_id: string; roll_number: string }>(
-          `select id, institution_id, campus_id, roll_number from public.student_profiles
+        const studentRows = await developmentDatabaseQuery<{ id: string; institution_id: string; campus_id: string; roll_number: string; department: string | null; cgpa: number | null; backlogs: number }>(
+          `select id, institution_id, campus_id, roll_number, department, cgpa, backlogs from public.student_profiles
            where ($1::boolean and id::text = $2) or (campus_id = $3 and lower(roll_number) = lower($4))
            order by case when id::text = $2 then 0 else 1 end limit 1`,
           [isUuid, user.id, profile.campus_id || null, submitted.confirmation_data.rollNumber],
@@ -324,16 +341,57 @@ export async function POST(request: Request, context: { params: Promise<{ resour
       }
 
       if (!driveId) throw new ApiError(500, "Could not create or find a placement drive for this company.");
-      const { body: driveRows } = localPreview
-        ? { body: await developmentDatabaseQuery(
-            "select id from public.drives where id = $1 and institution_id = $2 and campus_id = $3 limit 1",
+      const driveRows: { id: string; status: string; application_deadline: string | null; eligibility: Record<string, unknown> | null }[] = localPreview
+        ? await developmentDatabaseQuery(
+            "select id, status, application_deadline, eligibility from public.drives where id = $1 and institution_id = $2 and campus_id = $3 limit 1",
             [driveId, studentProfile.institution_id, studentProfile.campus_id],
-          ) }
-        : await databaseRequest(
-            `drives?id=eq.${driveId}&institution_id=eq.${studentProfile.institution_id}&campus_id=eq.${studentProfile.campus_id}&select=id&limit=1`,
-          );
+          )
+        : (await databaseRequest(
+            `drives?id=eq.${driveId}&institution_id=eq.${studentProfile.institution_id}&campus_id=eq.${studentProfile.campus_id}&select=id,status,application_deadline,eligibility&limit=1`,
+          )).body as typeof driveRows;
       if (!Array.isArray(driveRows) || driveRows.length === 0) {
         throw new ApiError(404, "This drive is not available for your campus.");
+      }
+      const drive = driveRows[0];
+      if (!["Open", "Closing Soon"].includes(drive.status)) throw new ApiError(409, "This placement drive is no longer accepting confirmations.");
+      if (drive.application_deadline && new Date(drive.application_deadline).getTime() < Date.now()) throw new ApiError(409, "The application deadline for this drive has passed.");
+      const eligibility = drive.eligibility ?? {};
+      const branches = Array.isArray(eligibility.branches) ? eligibility.branches.filter((value): value is string => typeof value === "string") : [];
+      if (branches.length > 0 && (!studentProfile.department || !branches.includes(studentProfile.department))) {
+        throw new ApiError(403, `This drive is limited to ${branches.join(", ")} students.`);
+      }
+      const minCGPA = Number(eligibility.minCGPA ?? 0);
+      const maxBacklogs = Number(eligibility.maxBacklogs ?? Number.MAX_SAFE_INTEGER);
+      if (Number(studentProfile.cgpa ?? 0) < minCGPA) throw new ApiError(403, `This drive requires a CGPA of at least ${minCGPA}.`);
+      if (Number(studentProfile.backlogs ?? 0) > maxBacklogs) throw new ApiError(403, `This drive allows at most ${maxBacklogs} active backlogs.`);
+
+      const existingApplication = await developmentDatabaseQuery<{ id: string }>(
+        `select id from public.applications where student_id=$1 and drive_id=$2 limit 1`, [studentProfile.id, driveId],
+      );
+      const policyRows = await developmentDatabaseQuery<{ rules: Record<string, unknown> }>(
+        `select rules from public.placement_policies where institution_id=$1 and campus_id=$2 and active=true
+         order by updated_at desc limit 1`, [studentProfile.institution_id, studentProfile.campus_id],
+      );
+      const policy = policyRows[0]?.rules;
+      if (policy && Number(studentProfile.cgpa ?? 0) < Number(policy.minCGPA ?? 0)) {
+        throw new ApiError(403, `Campus policy requires a CGPA of at least ${Number(policy.minCGPA)}.`);
+      }
+      if (policy?.noActiveBacklogs === true && Number(studentProfile.backlogs ?? 0) > 0) {
+        throw new ApiError(403, "Campus policy does not allow applications from students with active backlogs.");
+      }
+      if (policy?.blockAfterPlacement === true) {
+        const placed = await developmentDatabaseQuery<{ id: string }>(
+          `select id from public.applications where student_id=$1 and status='Placed' limit 1`, [studentProfile.id],
+        );
+        if (placed[0]) throw new ApiError(403, "Campus policy blocks new applications after placement.");
+      }
+      if (!existingApplication[0] && Number.isInteger(Number(policy?.maxAppsPerDay))) {
+        const dailyCount = await developmentDatabaseQuery<{ count: number }>(
+          `select count(*)::int as count from public.applications where student_id=$1 and applied_at >= date_trunc('day', now())`,
+          [studentProfile.id],
+        );
+        const limit = Number(policy?.maxAppsPerDay);
+        if (dailyCount[0]?.count >= limit) throw new ApiError(429, `Campus policy limits applications to ${limit} per day.`);
       }
 
       const now = new Date().toISOString();
@@ -409,40 +467,59 @@ export async function POST(request: Request, context: { params: Promise<{ resour
            values ($1, $2, $3, $4, $5, $6, $7::jsonb) returning *`,
           [profile.institution_id, profile.campus_id, name, nullableText(input.website), nullableText(input.industry), nullableText(input.description), metadata],
         );
-        const company = Array.isArray(rows) ? rows[0] : undefined;
-        if (company) {
-          const defaults = companyDriveDefaults(company);
-          await developmentDatabaseQuery(
-            `insert into public.drives (institution_id, campus_id, company_id, role_title, job_type, description, location,
-               work_mode, openings, status, official_apply_link, eligibility, required_skills, selection_process)
-             values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13::text[], $14::jsonb)`,
-            [profile.institution_id, profile.campus_id, company.id, defaults.role_title, defaults.job_type,
-              defaults.description, defaults.location, defaults.work_mode, defaults.openings, defaults.status,
-              defaults.official_apply_link, JSON.stringify(defaults.eligibility), "{}", JSON.stringify(defaults.selection_process)],
-          );
-        }
         return Response.json({ data: rows }, { status: 201 });
       }
+    }
+
+    if (table === "drives" && useDirectDatabase) {
+      const { profile } = await currentProfile();
+      if (!profile.institution_id || !profile.campus_id) throw new ApiError(400, "Placement office is not linked to a campus.");
+      const companyId = typeof input.company_id === "string" ? input.company_id : "";
+      const roleTitle = typeof input.role_title === "string" ? input.role_title.trim() : "";
+      if (!companyId || !roleTitle) throw new ApiError(400, "Choose a company and enter a role title.");
+      const openings = Number(input.openings ?? 1);
+      if (!Number.isInteger(openings) || openings < 1) throw new ApiError(400, "Openings must be a positive whole number.");
+      const deadline = input.application_deadline == null ? null : new Date(String(input.application_deadline));
+      const driveDate = input.drive_date == null ? null : new Date(String(input.drive_date));
+      if (deadline && Number.isNaN(deadline.getTime())) throw new ApiError(400, "Enter a valid application deadline.");
+      if (driveDate && Number.isNaN(driveDate.getTime())) throw new ApiError(400, "Enter a valid drive date.");
+      if (deadline && driveDate && driveDate < deadline) throw new ApiError(400, "The drive date must be on or after the application deadline.");
+      const packageLpa = input.package_lpa == null ? null : Number(input.package_lpa);
+      const stipendMonthly = input.stipend_monthly == null ? null : Number(input.stipend_monthly);
+      if (packageLpa !== null && (!Number.isFinite(packageLpa) || packageLpa < 0)) throw new ApiError(400, "Package must be a valid non-negative amount.");
+      if (stipendMonthly !== null && (!Number.isFinite(stipendMonthly) || stipendMonthly < 0)) throw new ApiError(400, "Stipend must be a valid non-negative amount.");
+      const companiesForCampus = await developmentDatabaseQuery<{ id: string }>(
+        "select id from public.companies where id = $1 and institution_id = $2 and campus_id = $3 and archived = false limit 1",
+        [companyId, profile.institution_id, profile.campus_id],
+      );
+      if (!companiesForCampus[0]) throw new ApiError(404, "Company not found for this campus.");
+      const jobType = typeof input.job_type === "string" ? input.job_type : "Full-time";
+      const status = typeof input.status === "string" ? input.status : "Open";
+      if (!["Full-time", "Internship", "Part-time", "Contract"].includes(jobType)) throw new ApiError(400, "Choose a valid job type.");
+      if (!["Open", "Closing Soon", "Closed", "Completed"].includes(status)) throw new ApiError(400, "Choose a valid drive status.");
+      const eligibility = input.eligibility && typeof input.eligibility === "object" ? JSON.stringify(input.eligibility) : "{}";
+      const skills = Array.isArray(input.required_skills) ? input.required_skills.filter((value): value is string => typeof value === "string") : [];
+      const rows = await developmentDatabaseQuery(
+        `insert into public.drives (institution_id, campus_id, company_id, role_title, job_type, description, location,
+           work_mode, package_lpa, stipend_monthly, openings, application_deadline, drive_date, status,
+           official_apply_link, eligibility, required_skills)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::jsonb, $17::text[])
+         returning *`,
+        [profile.institution_id, profile.campus_id, companyId, roleTitle, jobType,
+          typeof input.description === "string" ? input.description : null,
+          typeof input.location === "string" ? input.location : null,
+          typeof input.work_mode === "string" ? input.work_mode : null,
+          packageLpa, stipendMonthly,
+          openings, deadline?.toISOString() ?? null, driveDate?.toISOString() ?? null, status,
+          typeof input.official_apply_link === "string" ? input.official_apply_link : null,
+          eligibility, skills],
+      );
+      return Response.json({ data: rows }, { status: 201 });
     }
 
     const { body } = await databaseRequest(table, {
       method: "POST", body: JSON.stringify(record), headers: { Prefer: "return=representation" },
     });
-    if (table === "companies" && Array.isArray(body) && body[0]) {
-      const company = body[0] as { id: string; name: string; website?: string | null; description?: string | null; metadata?: Record<string, unknown> | null };
-      const defaults = companyDriveDefaults(company);
-      const companyRecord = record as { institution_id: string; campus_id: string; created_by?: string };
-      await databaseRequest("drives", {
-        method: "POST",
-        body: JSON.stringify({
-          ...defaults,
-          institution_id: companyRecord.institution_id,
-          campus_id: companyRecord.campus_id,
-          ...(companyRecord.created_by ? { created_by: companyRecord.created_by } : {}),
-        }),
-        headers: { Prefer: "return=minimal" },
-      });
-    }
     return Response.json({ data: body }, { status: 201 });
   } catch (error) { return apiError(error); }
 }
