@@ -10,6 +10,7 @@ interface AdminHeaderProps {
     label: string;
     href?: string;
     onClick?: () => void;
+    icon?: React.ReactNode;
   };
 }
 
@@ -37,7 +38,7 @@ export function AdminHeader({ title, subtitle, action }: AdminHeaderProps) {
                 href={action.href}
                 className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors shadow-xs"
               >
-                <Plus className="w-3.5 h-3.5" />
+                {action.icon ?? <Plus className="w-3.5 h-3.5" />}
                 {action.label}
               </Link>
             ) : (
@@ -45,7 +46,7 @@ export function AdminHeader({ title, subtitle, action }: AdminHeaderProps) {
                 onClick={action.onClick}
                 className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors shadow-xs"
               >
-                <Plus className="w-3.5 h-3.5" />
+                {action.icon ?? <Plus className="w-3.5 h-3.5" />}
                 {action.label}
               </button>
             )

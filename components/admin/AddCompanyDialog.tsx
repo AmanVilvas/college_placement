@@ -1,146 +1,325 @@
 "use client";
 
 import { useState } from "react";
-import { X, Building2, Plus, Globe, FileText, CheckCircle } from "lucide-react";
-import { Company } from "@/lib/types";
+import {
+  X, Building2, Plus, Globe, Trash2,
+  MapPin, User, DollarSign, GraduationCap, Briefcase, Phone,
+  CheckCircle2, Loader2,
+} from "lucide-react";
+
+interface CustomField {
+  key: string;
+  value: string;
+  id: string;
+}
 
 interface AddCompanyDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (company: Partial<Company>) => void;
+  onAdd: (company: Record<string, unknown>) => Promise<void> | void;
+}
+
+const PRESET_COLORS = [
+  "#00a4ef", "#ff9900", "#86bc25", "#007cc3", "#002d72",
+  "#4285f4", "#9d2449", "#6366f1", "#10b981", "#ec4899",
+  "#f97316", "#8b5cf6", "#14b8a6", "#ef4444", "#0ea5e9",
+];
+
+const INDUSTRIES = [
+  "Technology / SaaS", "E-Commerce / Cloud", "Consulting / Advisory",
+  "Finance / Fintech / Banking", "IT Services & Solutions",
+  "Core Engineering", "Data & Analytics", "Healthcare / Pharma",
+  "Automobile / Manufacturing", "FMCG / Retail", "Telecom",
+  "Media & Entertainment", "Government / PSU", "Other",
+];
+
+const inputCls =
+  "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all bg-white";
+
+function SectionHeader({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 uppercase tracking-widest pb-1">
+      <Icon className="w-3.5 h-3.5" />
+      {label}
+    </div>
+  );
 }
 
 export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogProps) {
   const [name, setName] = useState("");
   const [website, setWebsite] = useState("");
-  const [industry, setIndustry] = useState("Technology");
+  const [industry, setIndustry] = useState("Technology / SaaS");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("#6366f1");
+  const [position, setPosition] = useState("");
+  const [qualification, setQualification] = useState("");
+  const [stipend, setStipend] = useState("");
+  const [ctc, setCtc] = useState("");
+  const [location, setLocation] = useState("");
+  const [spoc, setSpoc] = useState("");
+  const [trainerDetails, setTrainerDetails] = useState("");
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  function addCustomField() {
+    setCustomFields((f) => [...f, { key: "", value: "", id: Date.now().toString() }]);
+  }
+
+  function removeCustomField(id: string) {
+    setCustomFields((f) => f.filter((cf) => cf.id !== id));
+  }
+
+  function updateCustomField(id: string, field: "key" | "value", val: string) {
+    setCustomFields((f) => f.map((cf) => (cf.id === id ? { ...cf, [field]: val } : cf)));
+  }
+
+  function resetForm() {
+    setName(""); setWebsite(""); setIndustry("Technology / SaaS"); setDescription("");
+    setColor("#6366f1"); setPosition(""); setQualification(""); setStipend("");
+    setCtc(""); setLocation(""); setSpoc(""); setTrainerDetails(""); setCustomFields([]);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    onAdd({
-      id: "c_" + Date.now(),
-      name,
-      website: website.startsWith("http") ? website : `https://${website}`,
-      industry,
-      description,
-      logoColor: color,
-      drives: [],
-    });
-    setName("");
-    setWebsite("");
-    setDescription("");
-    onClose();
-  };
+    setIsSubmitting(true);
 
-  const presetColors = ["#00a4ef", "#ff9900", "#86bc25", "#007cc3", "#002d72", "#4285f4", "#9d2449", "#6366f1", "#10b981", "#ec4899"];
+    const extraFields: Record<string, string> = {};
+    customFields.forEach(({ key, value }) => {
+      if (key.trim() && value.trim()) extraFields[key.trim()] = value.trim();
+    });
+
+    const payload: Record<string, unknown> = {
+      name: name.trim(),
+      website: website.trim()
+        ? (website.startsWith("http") ? website.trim() : `https://${website.trim()}`)
+        : null,
+      industry,
+      description: description.trim() || null,
+      metadata: {
+        logoColor: color,
+        position: position.trim() || null,
+        qualification: qualification.trim() || null,
+        stipend: stipend.trim() || null,
+        ctc: ctc.trim() || null,
+        location: location.trim() || null,
+        spoc: spoc.trim() || null,
+        trainer_details: trainerDetails.trim() || null,
+        extra_fields: Object.keys(extraFields).length > 0 ? extraFields : null,
+      },
+    };
+
+    try {
+      await onAdd(payload);
+      resetForm();
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-              <Building2 className="w-4 h-4" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50/60 to-white flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm transition-colors"
+              style={{ backgroundColor: color + "22", border: `2px solid ${color}44` }}
+            >
+              <Building2 className="w-5 h-5" style={{ color }} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900">Add New Partner Company</h2>
-              <p className="text-xs text-slate-500">Register a recruiting organization</p>
+              <h2 className="text-base font-bold text-slate-900">Add Recruiting Company</h2>
+              <p className="text-xs text-slate-500">All details visible to students immediately</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-200/60 text-slate-400 hover:text-slate-600 transition-colors">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-slate-200/60 text-slate-400 hover:text-slate-600 transition-colors"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Company Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. Microsoft, Google, Goldman Sachs"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
-            />
-          </div>
+        {/* Scrollable Body */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+          <div className="p-6 space-y-6">
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Website URL</label>
-              <input
-                type="text"
-                placeholder="https://company.com"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
-              />
+            {/* SECTION 1: Company Identity */}
+            <div className="space-y-4">
+              <SectionHeader icon={Building2} label="Company Identity" />
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Company Name <span className="text-rose-500">*</span>
+                </label>
+                <input type="text" required placeholder="e.g. AU Small Finance Bank, Infosys, Google"
+                  value={name} onChange={(e) => setName(e.target.value)} className={inputCls} autoFocus />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Website URL</label>
+                  <div className="relative">
+                    <Globe className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                    <input type="text" placeholder="company.com" value={website}
+                      onChange={(e) => setWebsite(e.target.value)} className={inputCls + " pl-9"} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Industry Domain</label>
+                  <select value={industry} onChange={(e) => setIndustry(e.target.value)} className={inputCls}>
+                    {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Brand Color</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {PRESET_COLORS.map((c) => (
+                    <button key={c} type="button" title={c} onClick={() => setColor(c)}
+                      className={`w-6 h-6 rounded-full transition-all ${color === c ? "scale-125 ring-2 ring-offset-2 ring-slate-500" : "hover:scale-110"}`}
+                      style={{ backgroundColor: c }} />
+                  ))}
+                  <input type="color" value={color} onChange={(e) => setColor(e.target.value)}
+                    className="w-7 h-7 rounded-full cursor-pointer border-2 border-slate-200 p-0.5" title="Custom color" />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Industry Domain</label>
-              <select
-                value={industry}
-                onChange={(e) => setIndustry(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
-              >
-                <option value="Technology">Technology / SaaS</option>
-                <option value="E-Commerce / Cloud">E-Commerce / Cloud</option>
-                <option value="Consulting">Consulting / Advisory</option>
-                <option value="Finance / Fintech">Finance / Fintech</option>
-                <option value="IT Services">IT Services & Solutions</option>
-                <option value="Core Engineering">Core Engineering</option>
-                <option value="Analytics">Data & Analytics</option>
-              </select>
+
+            <div className="border-t border-slate-100" />
+
+            {/* SECTION 2: Opportunity Details */}
+            <div className="space-y-4">
+              <SectionHeader icon={Briefcase} label="Opportunity Details" />
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Position(s) / Role Title</label>
+                <textarea rows={2}
+                  placeholder="e.g. Graduate Engineer Trainee&#10;&#8226; Software Application Analyst Intern&#10;&#8226; Data Analyst / Data Engineer Intern"
+                  value={position} onChange={(e) => setPosition(e.target.value)} className={inputCls + " resize-none"} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Qualification</label>
+                  <div className="relative">
+                    <GraduationCap className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                    <input type="text" placeholder="e.g. BTech CSE 2027 Batch" value={qualification}
+                      onChange={(e) => setQualification(e.target.value)} className={inputCls + " pl-9"} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Location(s)</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                    <input type="text" placeholder="e.g. Jaipur / Mumbai" value={location}
+                      onChange={(e) => setLocation(e.target.value)} className={inputCls + " pl-9"} />
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Stipend</label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                    <input type="text" placeholder="e.g. Rs.15,000/month - 6 months" value={stipend}
+                      onChange={(e) => setStipend(e.target.value)} className={inputCls + " pl-9"} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">CTC / Package</label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                    <input type="text" placeholder="e.g. Rs.5 LPA + Performance Bonus" value={ctc}
+                      onChange={(e) => setCtc(e.target.value)} className={inputCls + " pl-9"} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100" />
+
+            {/* SECTION 3: Contacts & Notes */}
+            <div className="space-y-4">
+              <SectionHeader icon={User} label="Contacts & Notes" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Operations SPOC</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                    <input type="text" placeholder="e.g. Ms. Deepanshi" value={spoc}
+                      onChange={(e) => setSpoc(e.target.value)} className={inputCls + " pl-9"} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Trainer Details</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                    <input type="text" placeholder="e.g. Ms. Kirti, Mr. Rahul Kamboj" value={trainerDetails}
+                      onChange={(e) => setTrainerDetails(e.target.value)} className={inputCls + " pl-9"} />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">About / Description</label>
+                <textarea rows={2} placeholder="Brief company background, hiring history, or notes..."
+                  value={description} onChange={(e) => setDescription(e.target.value)} className={inputCls + " resize-none"} />
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100" />
+
+            {/* SECTION 4: Dynamic Extra Fields */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  <Plus className="w-3.5 h-3.5" />
+                  Additional Fields
+                </div>
+                <button type="button" onClick={addCustomField}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100">
+                  <Plus className="w-3.5 h-3.5" /> Add More Field
+                </button>
+              </div>
+              {customFields.length === 0 ? (
+                <p className="text-xs text-slate-400 italic py-1">
+                  Click Add More Field to add Bond Period, Selection Process, etc.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {customFields.map((cf) => (
+                    <div key={cf.id} className="flex items-center gap-2">
+                      <input type="text" placeholder="Field name (e.g. Bond Period)" value={cf.key}
+                        onChange={(e) => updateCustomField(cf.id, "key", e.target.value)}
+                        className="flex-[2] border border-slate-200 rounded-xl px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white" />
+                      <input type="text" placeholder="Value" value={cf.value}
+                        onChange={(e) => updateCustomField(cf.id, "value", e.target.value)}
+                        className="flex-[3] border border-slate-200 rounded-xl px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white" />
+                      <button type="button" onClick={() => removeCustomField(cf.id)}
+                        className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors flex-shrink-0">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Brand Theme Color</label>
-            <div className="flex items-center gap-2">
-              {presetColors.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  className={`w-6 h-6 rounded-full transition-transform ${color === c ? "scale-125 ring-2 ring-offset-2 ring-slate-400" : "hover:scale-110"}`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">About Organization</label>
-            <textarea
-              rows={3}
-              placeholder="Brief summary of company background, hiring history, or special notes..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 resize-none"
-            />
-          </div>
-
-          <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-            >
+          {/* Sticky Footer */}
+          <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-100 bg-slate-50/60 flex-shrink-0 sticky bottom-0">
+            <button type="button" onClick={() => { resetForm(); onClose(); }} disabled={isSubmitting}
+              className="px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-200/60 rounded-xl transition-colors">
               Cancel
             </button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm shadow-indigo-200 transition-colors flex items-center gap-1.5"
-            >
-              <Plus className="w-4 h-4" /> Add Company
+            <button type="submit" disabled={isSubmitting || !name.trim()}
+              className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm shadow-indigo-200/60 transition-colors flex items-center gap-2">
+              {isSubmitting
+                ? (<><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>)
+                : (<><CheckCircle2 className="w-4 h-4" /> Add Company</>)}
             </button>
           </div>
         </form>

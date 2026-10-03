@@ -1,174 +1,285 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useState, useMemo } from "react";
 import { StudentHeader } from "@/components/student/StudentHeader";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { drives } from "@/lib/data/companies";
-import { useLocalStorageState } from "@/lib/useLocalStorageState";
-import { useStudentProfile } from "@/lib/studentState";
-import { getDriveEligibilityIssues, isDriveAcceptingApplications } from "@/lib/driveRegistration";
-import { formatDate, formatPackage, getDaysUntilDeadline } from "@/lib/utils";
+import { useApiResource } from "@/lib/useApi";
 import {
-  ArrowDownWideNarrow, ArrowRight, Bookmark, BriefcaseBusiness, Check,
-  CircleAlert, Clock3, MapPin, Search, SlidersHorizontal, Sparkles, Users, X,
+  Building2, ExternalLink, Search, RefreshCw, Loader2,
+  MapPin, DollarSign, GraduationCap, Briefcase, Phone, User,
+  ChevronDown, ChevronUp, Sparkles, X,
 } from "lucide-react";
 
-const SAVED_DRIVES_KEY = "placement-helper:saved-drives:s1";
-type Availability = "All drives" | "Open now" | "Closing soon" | "Saved";
-type SortBy = "Recommended" | "Deadline" | "Package: high to low";
+interface ApiCompanyMeta {
+  logoColor?: string;
+  position?: string;
+  qualification?: string;
+  stipend?: string;
+  ctc?: string;
+  location?: string;
+  spoc?: string;
+  trainer_details?: string;
+  extra_fields?: Record<string, string>;
+}
 
-export default function CompaniesPage() {
-  const [student] = useStudentProfile();
+interface ApiCompany {
+  id: string;
+  name: string;
+  website?: string;
+  industry?: string;
+  description?: string;
+  logo_url?: string;
+  archived: boolean;
+  metadata?: ApiCompanyMeta;
+  created_at?: string;
+}
+
+function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value?: string | null }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-start gap-2.5 py-2.5 border-b border-slate-100 last:border-0">
+      <div className="flex-shrink-0 w-6 h-6 rounded-md bg-indigo-50 flex items-center justify-center mt-0.5">
+        <Icon className="w-3.5 h-3.5 text-indigo-500" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
+        <p className="text-xs text-slate-700 mt-0.5 leading-relaxed whitespace-pre-line">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function CompanyCard({
+  company, isExpanded, onToggle,
+}: { company: ApiCompany; isExpanded: boolean; onToggle: () => void }) {
+  const meta = company.metadata ?? {};
+  const logoColor = meta.logoColor ?? "#6366f1";
+  const hasDetails = !!(meta.position || meta.qualification || meta.stipend ||
+    meta.ctc || meta.location || meta.spoc || meta.trainer_details);
+  const extraKeys = meta.extra_fields ? Object.keys(meta.extra_fields) : [];
+
+  return (
+    <div
+      className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all overflow-hidden"
+      style={{ borderTop: `3px solid ${logoColor}` }}
+    >
+      <div className="p-5">
+        <div className="flex items-start gap-3 mb-3">
+          <CompanyLogo name={company.name} logoColor={logoColor} size="lg" />
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-slate-900 text-sm leading-tight">{company.name}</h3>
+            {company.industry && (
+              <span className="inline-block text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md mt-1">
+                {company.industry}
+              </span>
+            )}
+          </div>
+          {company.website && (
+            <a href={company.website} target="_blank" rel="noopener noreferrer"
+              className="flex-shrink-0 p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+              title="Visit website">
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {meta.ctc && (
+            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[10px] font-semibold px-2 py-1 rounded-full border border-emerald-100">
+              <DollarSign className="w-2.5 h-2.5" />{meta.ctc}
+            </span>
+          )}
+          {meta.location && (
+            <span className="inline-flex items-center gap-1 bg-sky-50 text-sky-700 text-[10px] font-semibold px-2 py-1 rounded-full border border-sky-100">
+              <MapPin className="w-2.5 h-2.5" />{meta.location}
+            </span>
+          )}
+          {meta.qualification && (
+            <span className="inline-flex items-center gap-1 bg-violet-50 text-violet-700 text-[10px] font-semibold px-2 py-1 rounded-full border border-violet-100">
+              <GraduationCap className="w-2.5 h-2.5" />{meta.qualification}
+            </span>
+          )}
+        </div>
+
+        {meta.position && (
+          <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3 mb-3">
+            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Position(s)</p>
+            <p className="text-xs text-indigo-900 font-medium whitespace-pre-line leading-relaxed">{meta.position}</p>
+          </div>
+        )}
+
+        {company.description && (
+          <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2">{company.description}</p>
+        )}
+      </div>
+
+      {(hasDetails || extraKeys.length > 0) && (
+        <div className="border-t border-slate-100">
+          <button onClick={onToggle}
+            className="w-full flex items-center justify-between px-5 py-3 text-xs font-semibold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/40 transition-colors">
+            <span>{isExpanded ? "Hide details" : "View full details"}</span>
+            {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+          {isExpanded && (
+            <div className="px-5 pb-5 space-y-0.5">
+              <InfoRow icon={Briefcase} label="Position(s)" value={meta.position} />
+              <InfoRow icon={GraduationCap} label="Qualification" value={meta.qualification} />
+              <InfoRow icon={MapPin} label="Location" value={meta.location} />
+              <InfoRow icon={DollarSign} label="Stipend" value={meta.stipend} />
+              <InfoRow icon={DollarSign} label="CTC / Package" value={meta.ctc} />
+              <InfoRow icon={Phone} label="Operations SPOC" value={meta.spoc} />
+              <InfoRow icon={User} label="Trainer Details" value={meta.trainer_details} />
+              {extraKeys.map((key) => (
+                <InfoRow key={key} icon={Building2} label={key} value={meta.extra_fields?.[key]} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const INDUSTRIES = [
+  "All industries",
+  "Technology / SaaS", "Finance / Fintech / Banking", "IT Services & Solutions",
+  "Core Engineering", "Data & Analytics", "Consulting / Advisory",
+  "E-Commerce / Cloud", "Healthcare / Pharma", "Automobile / Manufacturing",
+  "FMCG / Retail", "Telecom", "Media & Entertainment", "Government / PSU", "Other",
+];
+
+export default function StudentCompaniesPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [availability, setAvailability] = useState<Availability>("All drives");
-  const [jobType, setJobType] = useState("Any type");
-  const [workMode, setWorkMode] = useState("Any location");
-  const [sortBy, setSortBy] = useState<SortBy>("Recommended");
-  const [eligibleOnly, setEligibleOnly] = useState(false);
-  const [savedIds, setSavedIds, savedLoaded] = useLocalStorageState<string[]>(SAVED_DRIVES_KEY, []);
-  const [driveList] = useLocalStorageState("placement-helper:drives", drives);
+  const [selectedIndustry, setSelectedIndustry] = useState("All industries");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const search = new URLSearchParams(window.location.search).get("search");
-    if (search) setSearchTerm(search);
-  }, []);
+  const { data: apiCompanies, loading, error, refetch } = useApiResource<ApiCompany[]>(
+    "companies",
+    { archived: "eq.false", limit: "500" },
+    { fallback: [] }
+  );
 
-  const filtersActive = Boolean(searchTerm || availability !== "All drives" || jobType !== "Any type" || workMode !== "Any location" || eligibleOnly);
-  const filteredDrives = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    const filtered = driveList.filter((drive) => {
-      const searchable = [drive.companyName, drive.role, drive.location, ...drive.requiredSkills].join(" ").toLowerCase();
-      const daysLeft = getDaysUntilDeadline(drive.applicationDeadline);
-      const open = isDriveAcceptingApplications(drive);
-      return (!query || searchable.includes(query))
-        && (availability === "All drives" || (availability === "Open now" && open && daysLeft >= 0) || (availability === "Closing soon" && open && daysLeft >= 0 && daysLeft <= 5) || (availability === "Saved" && savedIds.includes(drive.id)))
-        && (jobType === "Any type" || drive.jobType === jobType)
-        && (workMode === "Any location" || drive.workMode === workMode)
-        && (!eligibleOnly || getDriveEligibilityIssues(drive, student).length === 0);
+  const companies = useMemo(() => {
+    const list = apiCompanies ?? [];
+    return list.filter((c) => {
+      const q = searchTerm.trim().toLowerCase();
+      const searchable = [c.name, c.industry ?? "", c.metadata?.position ?? "", c.metadata?.location ?? ""]
+        .join(" ").toLowerCase();
+      const matchSearch = !q || searchable.includes(q);
+      const matchIndustry = selectedIndustry === "All industries" || c.industry === selectedIndustry;
+      return matchSearch && matchIndustry;
     });
-    if (sortBy === "Deadline") filtered.sort((a, b) => a.applicationDeadline.localeCompare(b.applicationDeadline));
-    if (sortBy === "Package: high to low") filtered.sort((a, b) => (b.packageLPA ?? 0) - (a.packageLPA ?? 0));
-    return filtered;
-  }, [searchTerm, availability, jobType, workMode, eligibleOnly, savedIds, sortBy, driveList, student]);
+  }, [apiCompanies, searchTerm, selectedIndustry]);
 
-  const openDrives = driveList.filter(isDriveAcceptingApplications).length;
-  const eligibleDrives = driveList.filter((drive) => getDriveEligibilityIssues(drive, student).length === 0).length;
-
-  function toggleSaved(driveId: string) {
-    setSavedIds((current) => current.includes(driveId) ? current.filter((id) => id !== driveId) : [...current, driveId]);
-  }
-
-  function resetFilters() {
-    setSearchTerm(""); setAvailability("All drives"); setJobType("Any type"); setWorkMode("Any location"); setEligibleOnly(false); setSortBy("Recommended");
-  }
+  const totalCount = (apiCompanies ?? []).length;
+  const filtersActive = !!(searchTerm || selectedIndustry !== "All industries");
 
   return (
     <div className="min-h-full">
-      <StudentHeader title="Companies & opportunities" subtitle="Explore campus drives and find roles that fit your profile" />
-      <div className="mx-auto max-w-7xl space-y-6 p-5 sm:p-7">
-        <section className="relative overflow-hidden rounded-2xl bg-slate-950 px-6 py-7 text-white sm:px-8">
-          <div className="absolute -right-10 -top-24 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl" />
-          <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-end">
-            <div className="max-w-xl">
-              <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-indigo-200"><Sparkles className="h-4 w-4" /> YOUR PLACEMENT SEASON</div>
-              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Find your next opportunity.</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-300">Search roles, check your eligibility, and keep the drives you care about close.</p>
+      <StudentHeader
+        title="Recruiting Companies"
+        subtitle="All companies recruiting from campus this placement season"
+      />
+
+      <div className="max-w-7xl mx-auto p-5 sm:p-7 space-y-6">
+
+        {/* Hero Banner */}
+        <section className="relative overflow-hidden rounded-2xl bg-slate-950 px-6 py-8 text-white">
+          <div className="absolute -right-8 -top-20 h-64 w-64 rounded-full bg-indigo-500/20 blur-3xl" />
+          <div className="absolute -left-8 -bottom-16 h-48 w-48 rounded-full bg-violet-500/15 blur-3xl" />
+          <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-indigo-300 mb-3">
+                <Sparkles className="w-4 h-4" /> CAMPUS PLACEMENT 2026
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                {loading ? "Loading…" : `${totalCount} Recruiting Partner${totalCount !== 1 ? "s" : ""}`}
+              </h2>
+              <p className="mt-1.5 text-sm text-slate-400 max-w-md">
+                Explore every company coming to campus, their open positions, packages, and contact details.
+              </p>
             </div>
-            <div className="grid grid-cols-3 gap-5 border-t border-white/10 pt-4 md:min-w-[350px] md:border-l md:border-t-0 md:pl-6 md:pt-0">
-              <div><p className="text-xl font-bold">{driveList.length}</p><p className="mt-1 text-[11px] text-slate-400">Listed drives</p></div>
-              <div><p className="text-xl font-bold">{openDrives}</p><p className="mt-1 text-[11px] text-slate-400">Open today</p></div>
-              <div><p className="text-xl font-bold">{eligibleDrives}</p><p className="mt-1 text-[11px] text-slate-400">Match your profile</p></div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs text-emerald-400 font-semibold">Live Database</span>
+              <button onClick={refetch} disabled={loading}
+                className="ml-2 p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+              </button>
             </div>
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Opportunity filters">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <label className="relative min-w-0 flex-1">
-              <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-              <input aria-label="Search companies, roles, locations, or skills" type="search" placeholder="Search companies, roles, locations, or skills" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-4 focus:ring-indigo-50" />
-            </label>
-            <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-600">
-              <SlidersHorizontal className="h-4 w-4 text-slate-400" />
-              <select aria-label="Filter by job type" value={jobType} onChange={(event) => setJobType(event.target.value)} className="bg-transparent outline-none"><option>Any type</option><option>Full-time</option><option>Internship</option><option>Part-time</option><option>Contract</option></select>
-            </label>
-            <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-600">
-              <MapPin className="h-4 w-4 text-slate-400" />
-              <select aria-label="Filter by work mode" value={workMode} onChange={(event) => setWorkMode(event.target.value)} className="bg-transparent outline-none"><option>Any location</option><option>On-site</option><option>Hybrid</option><option>Remote</option></select>
-            </label>
-            <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-600">
-              <ArrowDownWideNarrow className="h-4 w-4 text-slate-400" />
-              <select aria-label="Sort opportunities" value={sortBy} onChange={(event) => setSortBy(event.target.value as SortBy)} className="bg-transparent outline-none"><option>Recommended</option><option>Deadline</option><option>Package: high to low</option></select>
-            </label>
+        {/* Search & Filters */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+              <input type="search" placeholder="Search companies, positions, locations…"
+                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:bg-white focus:border-indigo-300 transition-all" />
+            </div>
+            <select value={selectedIndustry} onChange={(e) => setSelectedIndustry(e.target.value)}
+              className="sm:w-56 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-300 transition-all">
+              {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
+            </select>
+            {filtersActive && (
+              <button onClick={() => { setSearchTerm(""); setSelectedIndustry("All industries"); }}
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3.5 py-2.5 rounded-xl transition-colors flex-shrink-0">
+                <X className="w-3.5 h-3.5" /> Clear
+              </button>
+            )}
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {(["All drives", "Open now", "Closing soon", "Saved"] as Availability[]).map((item) => (
-              <button key={item} onClick={() => setAvailability(item)} className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${availability === item ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{item}{item === "Saved" && savedIds.length > 0 ? ` (${savedIds.length})` : ""}</button>
-            ))}
-            <span className="mx-1 hidden h-5 border-l border-slate-200 sm:block" />
-            <button aria-pressed={eligibleOnly} onClick={() => setEligibleOnly((value) => !value)} className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${eligibleOnly ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
-              {eligibleOnly && <Check className="h-3.5 w-3.5" />} Show eligible for me
+          {filtersActive && (
+            <p className="mt-2.5 text-xs text-slate-500">
+              Showing {companies.length} of {totalCount} companies
+            </p>
+          )}
+        </section>
+
+        {/* Error */}
+        {error && (
+          <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-sm text-red-700 flex items-center gap-3">
+            <Building2 className="w-4 h-4 flex-shrink-0" />
+            <span>{error}</span>
+            <button onClick={refetch} className="ml-auto text-xs font-semibold hover:underline flex items-center gap-1">
+              <RefreshCw className="w-3 h-3" /> Retry
             </button>
-            {filtersActive && <button onClick={resetFilters} className="ml-auto flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-900"><X className="h-3.5 w-3.5" /> Clear filters</button>}
-          </div>
-        </section>
-
-        <div className="flex items-center justify-between gap-3">
-          <div><h3 className="text-base font-bold text-slate-900">Campus opportunities</h3><p className="mt-0.5 text-xs text-slate-500">{filteredDrives.length} {filteredDrives.length === 1 ? "drive" : "drives"} · Eligibility uses your sample profile</p></div>
-          <Link href="/applications" className="hidden items-center gap-1 text-xs font-semibold text-indigo-700 hover:text-indigo-900 sm:flex">My applications <ArrowRight className="h-3.5 w-3.5" /></Link>
-        </div>
-
-        {filteredDrives.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100"><Search className="h-5 w-5 text-slate-500" /></div>
-            <h3 className="mt-4 font-semibold text-slate-900">No drives match those filters</h3>
-            <p className="mt-1 text-sm text-slate-500">Try a different search or clear some filters.</p>
-            <button onClick={resetFilters} className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-700">Clear filters</button>
-          </div>
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {filteredDrives.map((drive) => {
-              const daysLeft = getDaysUntilDeadline(drive.applicationDeadline);
-              const reasons = getDriveEligibilityIssues(drive, student);
-              const isSaved = savedIds.includes(drive.id);
-              const isOpen = isDriveAcceptingApplications(drive);
-              return (
-                <article key={drive.id} className="group relative rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md sm:p-6">
-                  <div className="flex items-start gap-3">
-                    <CompanyLogo name={drive.companyName} logoColor={drive.companyLogoColor} size="lg" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2"><h4 className="font-bold text-slate-900">{drive.companyName}</h4><StatusBadge status={isOpen ? drive.status : "Closed"} size="sm" /></div>
-                      <p className="mt-0.5 text-sm text-slate-600">{drive.role}</p>
-                    </div>
-                    <button aria-label={isSaved ? `Remove ${drive.companyName} from saved drives` : `Save ${drive.companyName}`} aria-pressed={isSaved} onClick={() => toggleSaved(drive.id)} className={`rounded-lg border p-2 transition ${isSaved ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-700"}`}><Bookmark className="h-4 w-4" fill={isSaved ? "currentColor" : "none"} /></button>
-                  </div>
-                  <div className="mt-5 flex items-end justify-between gap-3">
-                    <div><p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Compensation</p><p className="mt-0.5 text-xl font-extrabold tracking-tight text-slate-950">{formatPackage(drive.packageLPA, drive.stipendMonthly)}</p></div>
-                    <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">{drive.jobType}</span>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-100 pt-4 text-xs text-slate-500">
-                    <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-slate-400" />{drive.location} · {drive.workMode}</span>
-                    <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5 text-slate-400" />{drive.openings} openings</span>
-                    <span className="inline-flex items-center gap-1.5"><BriefcaseBusiness className="h-3.5 w-3.5 text-slate-400" />Min CGPA {drive.eligibility.minCGPA}</span>
-                  </div>
-                  <div className={`mt-4 flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs ${reasons.length ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-900"}`}>
-                    {reasons.length ? <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
-                    <div><p className="font-semibold">{reasons.length ? "Eligibility needs attention" : "You meet the listed criteria"}</p>{reasons.length > 0 && <p className="mt-0.5 leading-5">{reasons.join(" · ")}</p>}</div>
-                  </div>
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <div className={`flex items-center gap-1.5 text-xs font-medium ${daysLeft >= 0 && daysLeft <= 5 && isOpen ? "text-rose-600" : "text-slate-500"}`}><Clock3 className="h-3.5 w-3.5" />{isOpen ? `Deadline ${formatDate(drive.applicationDeadline)}${daysLeft >= 0 ? ` · ${daysLeft}d left` : ""}` : `Closed · ${formatDate(drive.applicationDeadline)}`}</div>
-                    <Link href={`/companies/${drive.id}`} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-700">View drive &amp; register <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></Link>
-                  </div>
-                </article>
-              );
-            })}
           </div>
         )}
-        <p className="pb-2 text-center text-[11px] text-slate-400">Eligibility is a guide based on the profile shown in this demo. Confirm final criteria with your placement team.</p>
+
+        {/* Grid */}
+        {loading ? (
+          <div className="flex items-center justify-center py-24 text-slate-400">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading companies…
+          </div>
+        ) : companies.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-20 text-center">
+            <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+            <p className="font-semibold text-slate-500">
+              {totalCount === 0 ? "No companies added yet" : "No companies match your search"}
+            </p>
+            <p className="text-sm text-slate-400 mt-1">
+              {totalCount === 0 ? "Ask your placement office to add recruiting companies." : "Try adjusting your search or filters."}
+            </p>
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {companies.map((company) => (
+              <CompanyCard
+                key={company.id}
+                company={company}
+                isExpanded={expandedId === company.id}
+                onToggle={() => setExpandedId(expandedId === company.id ? null : company.id)}
+              />
+            ))}
+          </div>
+        )}
+
+        <p className="pb-2 text-center text-[11px] text-slate-400">
+          Company details are updated in real-time by your placement office.
+        </p>
       </div>
-      {savedLoaded && <span className="sr-only" aria-live="polite">{savedIds.length} saved drives</span>}
     </div>
   );
 }

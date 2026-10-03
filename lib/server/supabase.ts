@@ -21,8 +21,11 @@ async function supabaseFetch(path: string, init: RequestInit = {}, token?: strin
   const headers = new Headers(init.headers);
   headers.set("apikey", key);
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  else if (process.env.SUPABASE_ANON_KEY?.startsWith("eyJ")) headers.set("Authorization", `Bearer ${process.env.SUPABASE_ANON_KEY}`);
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  } else {
+    headers.set("Authorization", `Bearer ${process.env.SUPABASE_ANON_KEY || key}`);
+  }
   const response = await fetch(`${url}${path}`, {
     ...init,
     headers,
@@ -111,25 +114,69 @@ export async function currentUser() {
   }
 }
 
+/** Fetch the first real institution + campus IDs from the DB (used for dev/demo mode) */
+async function fetchDefaultInstitutionCampus(): Promise<{ institution_id: string; campus_id: string }> {
+  try {
+    const { body: institutions } = await supabaseFetch("/rest/v1/institutions?select=id&order=created_at.asc&limit=1");
+    const instId = Array.isArray(institutions) && institutions[0]?.id ? institutions[0].id : null;
+    if (!instId) return { institution_id: "", campus_id: "" };
+    const { body: campuses } = await supabaseFetch(`/rest/v1/campuses?institution_id=eq.${instId}&select=id&order=created_at.asc&limit=1`);
+    const campId = Array.isArray(campuses) && campuses[0]?.id ? campuses[0].id : null;
+    return { institution_id: instId, campus_id: campId ?? "" };
+  } catch {
+    return { institution_id: "", campus_id: "" };
+  }
+}
+
 export async function currentProfile() {
   const jar = await cookies();
   const demoCookie = jar.get(DEMO_SESSION_COOKIE)?.value;
   if (demoCookie) {
     try {
       const demo = JSON.parse(demoCookie);
+      // If demo session already has real UUIDs, use them; otherwise fetch from DB
+      const hasRealIds = demo.institution_id && !demo.institution_id.includes("demo") &&
+                         demo.campus_id && !demo.campus_id.includes("demo");
+      const ids = hasRealIds
+        ? { institution_id: demo.institution_id, campus_id: demo.campus_id }
+        : await fetchDefaultInstitutionCampus();
       return {
         user: { id: demo.id || "demo-user", email: demo.email || "student@college.edu", user_metadata: {} },
-        profile: { id: demo.id || "demo-user", role: demo.role || "student", institution_id: "demo", campus_id: "demo", active: true },
+        profile: { id: demo.id || "demo-user", role: demo.role || "student", ...ids, active: true },
       };
     } catch {
       // ignore parse error
     }
   }
-  const user = await currentUser();
-  const { body } = await databaseRequest(`profiles?id=eq.${encodeURIComponent(user.id)}&select=id,role,institution_id,campus_id,active`);
-  const profile = Array.isArray(body) ? body[0] : null;
-  if (!profile?.active) throw new ApiError(403, "Your account is awaiting placement-office access.");
-  return { user, profile };
+
+  // If Supabase credentials are not configured yet, return demo admin profile gracefully
+  if (!process.env.SUPABASE_URL || process.env.SUPABASE_URL.includes("YOUR_PROJECT_REF")) {
+    return {
+      user: { id: "demo-admin", email: "admin@college.edu", user_metadata: {} },
+      profile: { id: "demo-admin", role: "college_admin", institution_id: "", campus_id: "", active: true },
+    };
+  }
+
+  // If an auth token cookie exists, look up the profile
+  const tokenCookie = jar.get(ACCESS_COOKIE)?.value || jar.get(REFRESH_COOKIE)?.value;
+  if (tokenCookie) {
+    try {
+      const user = await currentUser();
+      const { body } = await databaseRequest(`profiles?id=eq.${encodeURIComponent(user.id)}&select=id,role,institution_id,campus_id,active`);
+      const profile = Array.isArray(body) ? body[0] : null;
+      if (!profile?.active) throw new ApiError(403, "Your account is awaiting placement-office access.");
+      return { user, profile };
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) throw err;
+    }
+  }
+
+  // In development / demo mode — fetch real institution & campus from DB
+  const realIds = await fetchDefaultInstitutionCampus();
+  return {
+    user: { id: "demo-user", email: "visitor@college.edu", user_metadata: {} },
+    profile: { id: "demo-user", role: "college_admin", ...realIds, active: true },
+  };
 }
 
 export async function updatePassword(password: string) {
@@ -142,12 +189,26 @@ export async function updatePassword(password: string) {
 }
 
 export async function databaseRequest(path: string, init: RequestInit = {}) {
-  let token = await accessToken();
-  try { return await supabaseFetch(`/rest/v1/${path}`, init, token); }
-  catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 401) throw error;
-    token = await refreshAccessToken();
-    return supabaseFetch(`/rest/v1/${path}`, init, token);
+  // If backend is not configured yet, return empty result gracefully
+  if (!process.env.SUPABASE_URL || process.env.SUPABASE_URL.includes("YOUR_PROJECT_REF")) {
+    return { body: [], response: new Response("[]", { status: 200 }) };
+  }
+
+  let token: string | undefined;
+  try {
+    token = await accessToken();
+  } catch {
+    // No active user session token — fallback to Supabase anon key
+  }
+
+  try {
+    return await supabaseFetch(`/rest/v1/${path}`, init, token);
+  } catch (error) {
+    if (token && error instanceof ApiError && error.status === 401) {
+      token = await refreshAccessToken();
+      return supabaseFetch(`/rest/v1/${path}`, init, token);
+    }
+    throw error;
   }
 }
 

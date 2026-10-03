@@ -10,14 +10,7 @@ function database() {
   if (!process.env.DATABASE_URL) return undefined;
   try {
     const url = new URL(process.env.DATABASE_URL);
-    // Supabase's direct database hostname is IPv6-only on some plans/runtimes.
-    // Route it through this project's verified Singapore session pooler instead.
-    const directHost = url.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/i);
-    if (directHost) {
-      url.hostname = "aws-0-ap-southeast-1.pooler.supabase.com";
-      url.port = "5432";
-      url.username = `postgres.${directHost[1]}`;
-    }
+    // Use host and credentials from DATABASE_URL directly
     pool ??= new Pool({
       host: url.hostname,
       port: Number(url.port || 5432),
@@ -41,14 +34,35 @@ export async function POST(request: Request) {
     if (db && process.env.SUPABASE_URL) {
       try {
         const result = await db.query(
-          "select p.email from public.student_profiles s join public.profiles p on p.id = s.user_id where lower(s.roll_number) = lower($1) and p.active = true limit 1",
+          `select s.id as student_id, s.roll_number, s.full_name, s.email, s.user_id,
+                  p.email as profile_email, coalesce(p.active, true) as active
+           from public.student_profiles s
+           left join public.profiles p on p.id = s.user_id
+           where lower(s.roll_number) = lower($1)
+           limit 1`,
           [input.rollNumber],
         );
-        if (result.rows[0]?.email) {
-          await authenticate(result.rows[0].email, input.password);
-          const { profile } = await currentProfile();
-          if (profile.role !== "student") { await signOut(); throw new ApiError(401, "Invalid roll number or password."); }
-          return Response.json({ ok: true });
+        const studentRow = result.rows[0];
+        if (studentRow) {
+          const studentEmail = studentRow.profile_email || studentRow.email || `${input.rollNumber.toLowerCase()}@college.edu`;
+          const studentName = studentRow.full_name || `Student (${input.rollNumber})`;
+
+          if (studentRow.user_id) {
+            await authenticate(studentEmail, input.password);
+            const { profile } = await currentProfile();
+            if (profile.role !== "student") { await signOut(); throw new ApiError(401, "Invalid roll number or password."); }
+            return Response.json({ ok: true, student: { name: studentName, rollNumber: input.rollNumber } });
+          } else {
+            // Student was uploaded from Admin Panel or Supabase Studio
+            await setDemoSession({
+              id: studentRow.student_id,
+              role: "student",
+              rollNumber: input.rollNumber,
+              name: studentName,
+              email: studentEmail,
+            });
+            return Response.json({ ok: true, student: { name: studentName, rollNumber: input.rollNumber } });
+          }
         }
       } catch (dbError) {
         if (dbError instanceof ApiError) throw dbError;

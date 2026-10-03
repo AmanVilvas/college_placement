@@ -18,11 +18,13 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now(), updated_at timestamptz not null default now()
 );
 create table if not exists public.student_profiles (
-  id uuid primary key default gen_random_uuid(), user_id uuid not null unique references public.profiles on delete cascade,
+  id uuid primary key default gen_random_uuid(), user_id uuid unique references public.profiles on delete set null,
   institution_id uuid not null references public.institutions on delete cascade, campus_id uuid not null references public.campuses on delete cascade,
-  roll_number text not null, department text not null, section text, year_of_study int, graduation_year int,
+  roll_number text not null, full_name text not null default '', email text,
+  department text not null, section text, year_of_study int, graduation_year int,
   phone text, cgpa numeric(4,2), tenth_percent numeric(5,2), twelfth_percent numeric(5,2), backlogs int not null default 0,
   skills text[] not null default '{}', profile_data jsonb not null default '{}', created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   unique(campus_id,roll_number)
 );
 
@@ -160,6 +162,35 @@ create or replace function public.handle_new_user() returns trigger language plp
 as $$ begin insert into public.profiles(id,email,full_name) values(new.id,new.email,coalesce(new.raw_user_meta_data->>'full_name','')); return new; end $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
+
+create or replace function public.default_student_institution_campus() returns trigger language plpgsql security definer set search_path=public
+as $$ begin
+  if new.institution_id is null then select id into new.institution_id from public.institutions order by created_at asc limit 1; end if;
+  if new.campus_id is null and new.institution_id is not null then
+    select id into new.campus_id from public.campuses where institution_id=new.institution_id order by created_at asc limit 1;
+    if new.campus_id is null then select id into new.campus_id from public.campuses order by created_at asc limit 1; end if;
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_default_student_institution_campus on public.student_profiles;
+create trigger trg_default_student_institution_campus before insert on public.student_profiles for each row execute function public.default_student_institution_campus();
+
+create or replace function public.auto_link_student_profile() returns trigger language plpgsql security definer set search_path=public
+as $$ declare matched_sp record; begin
+  select id, institution_id, campus_id, full_name into matched_sp from public.student_profiles
+  where user_id is null and (lower(email)=lower(new.email) or lower(profile_data->>'email')=lower(new.email)) limit 1;
+  if matched_sp.id is not null then
+    update public.student_profiles set user_id=new.id where id=matched_sp.id;
+    update public.profiles set
+      institution_id=coalesce(institution_id, matched_sp.institution_id),
+      campus_id=coalesce(campus_id, matched_sp.campus_id),
+      full_name=case when full_name is null or full_name='' then matched_sp.full_name else full_name end
+    where id=new.id;
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_auto_link_student_profile on public.profiles;
+create trigger trg_auto_link_student_profile after insert on public.profiles for each row execute function public.auto_link_student_profile();
 create or replace function public.record_application_stage() returns trigger language plpgsql security definer set search_path=public
 as $$ begin
   if tg_op='INSERT' or old.status is distinct from new.status then
