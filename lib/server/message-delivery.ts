@@ -18,6 +18,7 @@ export async function sendEmail(to: string, subject: string, text: string) {
 }
 
 export async function sendWhatsApp(recipient: Recipient, title: string, message: string) {
+  void message;
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const template = process.env.WHATSAPP_TEMPLATE_NAME;
@@ -29,7 +30,7 @@ export async function sendWhatsApp(recipient: Recipient, title: string, message:
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       messaging_product: "whatsapp", to: recipient.phone.replace(/[^\d]/g, ""), type: "template",
-      template: { name: template, language: { code: process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en" }, components: [{ type: "body", parameters: [{ type: "text", text: title.slice(0, 1024) }, { type: "text", text: message.slice(0, 1024) }] }] },
+      template: { name: template, language: { code: process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en" }, components: [{ type: "body", parameters: [{ type: "text", text: (recipient.name || "Student").slice(0, 1024) }, { type: "text", text: title.slice(0, 1024) }] }] },
     }),
   });
   if (!response.ok) throw new Error(await responseError(response));
