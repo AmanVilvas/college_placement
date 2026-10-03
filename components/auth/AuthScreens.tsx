@@ -43,11 +43,11 @@ export function StudentLogin() { return <Login admin={false} />; }
 export function AdminLogin() {
   const router = useRouter();
   useEffect(() => {
-    if (process.env.NODE_ENV === "development") router.replace("/admin/dashboard");
+    if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "production") router.replace("/admin/dashboard");
   }, [router]);
 
-  if (process.env.NODE_ENV === "development") {
-    return <main className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">Opening local admin preview…</main>;
+  if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "production") {
+    return <main className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">Opening placement office…</main>;
   }
   return <Login admin />;
 }

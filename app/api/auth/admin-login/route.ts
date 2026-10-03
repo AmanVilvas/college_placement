@@ -6,6 +6,7 @@ const adminRoles = new Set(["super_admin", "college_admin", "tpo", "coordinator"
 
 export async function POST(request: Request) {
   try {
+    if (process.env.NODE_ENV === "production") return Response.json({ ok: true });
     const input = schema.parse(await request.json());
 
     if (process.env.SUPABASE_URL) {

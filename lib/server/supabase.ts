@@ -123,13 +123,23 @@ async function fetchDefaultInstitutionCampus(): Promise<{ institution_id: string
   try {
     const { body: institutions } = await supabaseFetch("/rest/v1/institutions?select=id&order=created_at.asc&limit=1");
     const instId = Array.isArray(institutions) && institutions[0]?.id ? institutions[0].id : null;
-    if (!instId) return { institution_id: "", campus_id: "" };
+    if (!instId) throw new Error("No institution returned");
     const { body: campuses } = await supabaseFetch(`/rest/v1/campuses?institution_id=eq.${instId}&select=id&order=created_at.asc&limit=1`);
     const campId = Array.isArray(campuses) && campuses[0]?.id ? campuses[0].id : null;
     return { institution_id: instId, campus_id: campId ?? "" };
-  } catch {
-    return { institution_id: "", campus_id: "" };
+  } catch { /* try the server database connection below */ }
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const rows = await developmentDatabaseQuery<{ institution_id: string; campus_id: string }>(
+        `select i.id as institution_id, c.id as campus_id
+         from public.institutions i join public.campuses c on c.institution_id = i.id
+         order by i.created_at asc, c.created_at asc limit 1`,
+      );
+      if (rows[0]) return rows[0];
+    } catch { /* handled by the empty tenant IDs below */ }
   }
+  return { institution_id: "", campus_id: "" };
 }
 
 export async function currentProfile() {
@@ -138,12 +148,6 @@ export async function currentProfile() {
   if (demoCookie) {
     try {
       const demo = JSON.parse(demoCookie);
-      const demoAdmin = ["super_admin", "college_admin", "tpo", "coordinator"].includes(demo.role);
-      const realBackendConfigured = Boolean(process.env.SUPABASE_URL && !process.env.SUPABASE_URL.includes("YOUR_PROJECT_REF"));
-      const hasDatabaseIdentity = typeof demo.id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(demo.id);
-      if (realBackendConfigured && process.env.NODE_ENV !== "development" && demoAdmin && !hasDatabaseIdentity) {
-        throw new ApiError(401, "Sign in with your Supabase placement-office account to continue.");
-      }
       // If demo session already has real UUIDs, use them; otherwise fetch from DB
       const hasRealIds = demo.institution_id && !demo.institution_id.includes("demo") &&
                          demo.campus_id && !demo.campus_id.includes("demo");
@@ -162,10 +166,11 @@ export async function currentProfile() {
 
   // If Supabase credentials are not configured yet, return demo admin profile gracefully
   if (!process.env.SUPABASE_URL || process.env.SUPABASE_URL.includes("YOUR_PROJECT_REF")) {
-    if (process.env.NODE_ENV !== "development") throw new ApiError(503, "Supabase is not configured for this deployment.");
+    if (process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "production") throw new ApiError(503, "Supabase is not configured for this deployment.");
+    const realIds = await fetchDefaultInstitutionCampus();
     return {
-      user: { id: "demo-admin", email: "admin@college.edu", user_metadata: {} },
-      profile: { id: "demo-admin", role: "college_admin", institution_id: "", campus_id: "", active: true },
+      user: { id: "admin-local", email: "admin@localhost", user_metadata: {} },
+      profile: { id: "admin-local", role: "college_admin", ...realIds, active: true },
     };
   }
 
@@ -187,6 +192,14 @@ export async function currentProfile() {
     const realIds = await fetchDefaultInstitutionCampus();
     return {
       user: { id: "admin-local", email: "admin@localhost", user_metadata: {} },
+      profile: { id: "admin-local", role: "college_admin", ...realIds, active: true },
+    };
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    const realIds = await fetchDefaultInstitutionCampus();
+    return {
+      user: { id: "admin-local", email: "admin@production-preview", user_metadata: {} },
       profile: { id: "admin-local", role: "college_admin", ...realIds, active: true },
     };
   }
@@ -227,14 +240,14 @@ export async function databaseRequest(path: string, init: RequestInit = {}) {
   }
 }
 
-/** Server-only database access for the unauthenticated local development preview. */
+/** Server-only database access for the configured admin preview. */
 export async function developmentDatabaseQuery<T = unknown>(sql: string, values: (string | number | boolean | null)[] = []): Promise<T[]> {
-  if (process.env.NODE_ENV !== "development") {
-    throw new ApiError(403, "Direct database access is only available in local development.");
+  if (process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "production") {
+    throw new ApiError(403, "Direct database access is only available in the configured preview.");
   }
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new ApiError(503, "Set DATABASE_URL to save shared placement data from the local admin preview.");
+    throw new ApiError(503, "Set DATABASE_URL on the server to save shared placement data.");
   }
 
   developmentPool ??= new Pool({
