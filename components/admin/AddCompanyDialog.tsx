@@ -60,6 +60,7 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
   const [trainerDetails, setTrainerDetails] = useState("");
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -85,6 +86,7 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
     e.preventDefault();
     if (!name.trim()) return;
     setIsSubmitting(true);
+    setSubmitError(null);
 
     const extraFields: Record<string, string> = {};
     customFields.forEach(({ key, value }) => {
@@ -115,6 +117,8 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
       await onAdd(payload);
       resetForm();
       onClose();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Could not save this company. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -150,6 +154,11 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
         {/* Scrollable Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
           <div className="p-6 space-y-6">
+            {submitError && (
+              <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                {submitError}
+              </p>
+            )}
 
             {/* SECTION 1: Company Identity */}
             <div className="space-y-4">

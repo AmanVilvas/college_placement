@@ -3,10 +3,9 @@
 import { StudentHeader } from "@/components/student/StudentHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
-import { drives as dummyDrives } from "@/lib/data/companies";
 import { useApiResource } from "@/lib/useApi";
 import { formatDate, formatPackage, getDaysUntilDeadline } from "@/lib/utils";
-import { Calendar, MapPin, Clock, Users, RefreshCw, Loader2, Wifi, WifiOff } from "lucide-react";
+import { Calendar, MapPin, Clock, Users, RefreshCw, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 interface ApiDrive {
@@ -41,44 +40,13 @@ export default function DrivesPage() {
     { fallback: [] }
   );
 
-  const isDemo = !loading && (
-    error?.includes("not configured") ||
-    error?.includes("401") ||
-    error?.includes("403") ||
-    (!error && (!apiDrives || apiDrives.length === 0))
-  );
-
-  const allDrives = (apiDrives && apiDrives.length > 0)
-    ? (apiDrives)
-        .filter((d) => d.status === "Open" || d.status === "Closing Soon")
-        .sort((a, b) => {
-          const aDate = a.drive_date ? new Date(a.drive_date).getTime() : 0;
-          const bDate = b.drive_date ? new Date(b.drive_date).getTime() : 0;
-          return aDate - bDate;
-        })
-    : (loading ? [] : dummyDrives
-        .filter((d) => d.status === "Open" || d.status === "Closing Soon")
-        .sort((a, b) => new Date(a.driveDate).getTime() - new Date(b.driveDate).getTime())
-        .map((d) => ({
-          id: d.id,
-          company_id: d.companyId,
-          role_title: d.role,
-          job_type: d.jobType,
-          package_lpa: d.packageLPA,
-          stipend_monthly: d.stipendMonthly,
-          location: d.location,
-          work_mode: d.workMode,
-          openings: d.openings,
-          application_deadline: d.applicationDeadline,
-          drive_date: d.driveDate,
-          status: d.status,
-          eligibility: {
-            branches: d.eligibility.branches,
-            minCGPA: d.eligibility.minCGPA,
-            maxBacklogs: d.eligibility.maxBacklogs,
-          },
-          companies: { name: d.companyName, logo_url: d.companyLogoUrl, metadata: { logoColor: d.companyLogoColor } },
-        })));
+  const allDrives = (apiDrives ?? [])
+    .filter((d) => d.status === "Open" || d.status === "Closing Soon")
+    .sort((a, b) => {
+      const aDate = a.drive_date ? new Date(a.drive_date).getTime() : Number.MAX_SAFE_INTEGER;
+      const bDate = b.drive_date ? new Date(b.drive_date).getTime() : Number.MAX_SAFE_INTEGER;
+      return aDate - bDate;
+    });
 
   return (
     <div>
@@ -102,6 +70,8 @@ export default function DrivesPage() {
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
+
+        {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">Could not load drives from the placement database: {error}</p>}
 
         {loading ? (
           <div className="flex items-center justify-center py-24 text-slate-400">
@@ -174,7 +144,7 @@ export default function DrivesPage() {
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />
-                        Deadline: {formatDate(drive.application_deadline ?? "")}
+                        Deadline: {drive.application_deadline ? formatDate(drive.application_deadline) : "No deadline"}
                         {daysLeft > 0 && (
                           <span className={`ml-1 font-semibold ${daysLeft <= 3 ? "text-red-600" : daysLeft <= 7 ? "text-amber-600" : "text-slate-600"}`}>
                             ({daysLeft}d left)

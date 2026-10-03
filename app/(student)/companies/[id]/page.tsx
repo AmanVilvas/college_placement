@@ -7,38 +7,114 @@ import { CompanyLogo } from "@/components/shared/CompanyLogo";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ConfirmParticipationDialog } from "@/components/shared/ConfirmParticipationDialog";
 import type { ConfirmationFormData } from "@/components/shared/ConfirmParticipationDialog";
-import { drives } from "@/lib/data/companies";
-import { notifications as seededNotifications } from "@/lib/data/notifications";
-import { useLocalStorageState } from "@/lib/useLocalStorageState";
-import { useStudentApplications, useStudentProfile } from "@/lib/studentState";
-import { getDriveEligibilityIssues, isDriveAcceptingApplications } from "@/lib/driveRegistration";
-import type { Application, Notification } from "@/lib/types";
+import { isDriveAcceptingApplications } from "@/lib/driveRegistration";
+import type { Application } from "@/lib/types";
+import { apiMutate, useApiResource } from "@/lib/useApi";
 import {
   formatPackage, formatDate, getDaysUntilDeadline,
 } from "@/lib/utils";
 import {
-  MapPin, Briefcase, Users, Clock, Calendar, Globe,
-  ExternalLink, CheckCircle, ChevronLeft, Check,
-  AlertCircle, ArrowRight, ShieldCheck, Sparkles,
+  MapPin, Briefcase, Users, Globe,
+  CheckCircle, ChevronLeft, Check, AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
+
+interface ApiDrive {
+  id: string;
+  company_id: string;
+  role_title: string;
+  job_type?: string;
+  package_lpa?: number | string | null;
+  stipend_monthly?: number | string | null;
+  location?: string | null;
+  work_mode?: string | null;
+  openings?: number;
+  application_deadline?: string | null;
+  drive_date?: string | null;
+  status: string;
+  official_apply_link?: string | null;
+  description?: string | null;
+  eligibility?: Record<string, unknown>;
+  required_skills?: string[];
+  selection_process?: string[];
+  companies?: { name?: string; logo_url?: string; metadata?: { logoColor?: string } };
+}
+
+interface ApiApplication {
+  id: string;
+  drive_id: string;
+  status: string;
+}
+
+function toDrive(row: ApiDrive) {
+  const eligibility = row.eligibility ?? {};
+  const jobType = ["Full-time", "Internship", "Part-time", "Contract"].includes(row.job_type ?? "")
+    ? row.job_type as "Full-time" | "Internship" | "Part-time" | "Contract"
+    : "Full-time";
+  const workMode = ["On-site", "Remote", "Hybrid"].includes(row.work_mode ?? "")
+    ? row.work_mode as "On-site" | "Remote" | "Hybrid"
+    : "On-site";
+  const status = ["Open", "Closing Soon", "Closed", "Completed"].includes(row.status)
+    ? row.status as "Open" | "Closing Soon" | "Closed" | "Completed"
+    : "Closed";
+  const selection = Array.isArray(row.selection_process) ? row.selection_process : [];
+
+  return {
+    id: row.id,
+    companyId: row.company_id,
+    companyName: row.companies?.name ?? "Company",
+    companyLogoUrl: row.companies?.logo_url ?? undefined,
+    companyLogoColor: row.companies?.metadata?.logoColor ?? "#6366f1",
+    role: row.role_title,
+    jobType,
+    packageLPA: row.package_lpa == null ? undefined : Number(row.package_lpa),
+    stipendMonthly: row.stipend_monthly == null ? undefined : Number(row.stipend_monthly),
+    location: row.location ?? "Not specified",
+    workMode,
+    openings: row.openings ?? 1,
+    applicationDeadline: row.application_deadline ?? "",
+    driveDate: row.drive_date ?? "",
+    status,
+    officialApplyLink: row.official_apply_link ?? "",
+    jobDescription: row.description ?? "Company has not provided a job description yet.",
+    eligibility: {
+      branches: Array.isArray(eligibility.branches) ? eligibility.branches as Application["studentBranch"][] : [],
+      minCGPA: Number(eligibility.minCGPA ?? eligibility.min_cgpa ?? 0),
+      maxBacklogs: Number(eligibility.maxBacklogs ?? eligibility.max_backlogs ?? 99),
+      passOutYear: typeof eligibility.passOutYear === "string" ? eligibility.passOutYear : undefined,
+      tenthMin: typeof eligibility.tenthMin === "number" ? eligibility.tenthMin : undefined,
+      twelfthMin: typeof eligibility.twelfthMin === "number" ? eligibility.twelfthMin : undefined,
+    },
+    requiredSkills: row.required_skills ?? [],
+    selectionProcess: selection,
+    importantInstructions: [],
+    createdAt: new Date().toISOString(),
+  };
+}
 
 export default function DriveDetailPage() {
   const params = useParams();
   const driveId = params.id as string;
-  const [driveList] = useLocalStorageState("placement-helper:drives", drives);
-  const [currentStudent, setCurrentStudent] = useStudentProfile();
-  const { applications: myApplications, saveApplication } = useStudentApplications();
-  const [notifications, setNotifications] = useLocalStorageState<Notification[]>("placement-helper:notifications", seededNotifications);
-  const [portalLaunches, setPortalLaunches] = useLocalStorageState<Record<string, string>>("placement-helper:portal-launches:s1", {});
-  const drive = driveList.find((d) => d.id === driveId);
+  const { data: liveDriveRows, loading: driveLoading } = useApiResource<ApiDrive[]>("drives", {
+    id: `eq.${driveId}`,
+    select: "id,company_id,role_title,job_type,package_lpa,stipend_monthly,location,work_mode,openings,application_deadline,drive_date,status,official_apply_link,description,eligibility,required_skills,selection_process,companies(name,logo_url,metadata)",
+    limit: "1",
+  }, { fallback: [] });
+  const { data: liveApplications, refetch: refetchApplications } = useApiResource<ApiApplication[]>("applications", {
+    drive_id: `eq.${driveId}`,
+    select: "id,drive_id,status",
+    limit: "50",
+  }, { fallback: [] });
+  const [portalLaunches, setPortalLaunches] = useState<Record<string, string>>({});
+  const liveRow = liveDriveRows?.[0];
+  const drive = liveRow ? toDrive(liveRow) : undefined;
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   if (!drive) {
     return (
       <div className="p-12 text-center">
-        <p className="text-slate-500 mb-2">Drive not found</p>
+        <p className="text-slate-500 mb-2">{driveLoading ? "Loading drive…" : "Drive not found in the placement database"}</p>
         <Link href="/companies" className="text-indigo-600 font-semibold text-xs hover:underline">
           ← Back to Companies
         </Link>
@@ -48,32 +124,15 @@ export default function DriveDetailPage() {
 
   const daysLeft = getDaysUntilDeadline(drive.applicationDeadline);
   const isClosed = !isDriveAcceptingApplications(drive);
-  const eligibilityIssues = getDriveEligibilityIssues(drive, currentStudent);
-  const matchingApplication = myApplications.find((application) => application.driveId === drive.id);
-  const confirmed = Boolean(matchingApplication && matchingApplication.status === "Confirmed");
+  const confirmed = Boolean(liveApplications?.some((application) => application.drive_id === drive.id && application.status === "Confirmed"));
 
-  const handleConfirm = (data: ConfirmationFormData) => {
-    if (!isDriveAcceptingApplications(drive)
-      || getDriveEligibilityIssues(drive, currentStudent).length > 0
-      || !portalLaunches[drive.id]
-      || data.branch !== currentStudent.branch
-      || data.section !== currentStudent.section
-      || data.fullName.trim().toLowerCase() !== currentStudent.name.trim().toLowerCase()
-      || data.rollNumber.trim().toLowerCase() !== currentStudent.rollNumber.trim().toLowerCase()) return false;
-    const now = new Date().toISOString();
-    const application: Application = {
-      id: matchingApplication?.id ?? `app-${currentStudent.id}-${drive.id}`,
-      studentId: currentStudent.id, studentName: currentStudent.name, studentRollNumber: currentStudent.rollNumber,
-      studentBranch: currentStudent.branch, studentSection: currentStudent.section,
-      driveId: drive.id, driveName: drive.role, companyId: drive.companyId, companyName: drive.companyName,
-      status: "Confirmed", appliedAt: matchingApplication?.appliedAt ?? portalLaunches[drive.id] ?? now,
-      confirmedAt: now, confirmationData: { ...data, confirmedAt: now },
-      followUpCount: matchingApplication?.followUpCount ?? 0, updatedAt: now,
-    };
-    saveApplication(application);
-    if (!notifications.some((notification) => notification.title === `Participation confirmed · ${drive.companyName}`)) {
-      setNotifications((current) => [{ id: `confirm-${drive.id}-${Date.now()}`, title: `Participation confirmed · ${drive.companyName}`, message: `Your participation for ${drive.role} was saved on this device. Complete any remaining steps on the official company portal.`, category: "General", createdAt: now, read: false, driveId: drive.id, companyName: drive.companyName }, ...current]);
-    }
+  const handleConfirm = async (data: ConfirmationFormData) => {
+    if (!isDriveAcceptingApplications(drive) || !data.confirmed) return false;
+    await apiMutate("POST", "applications", {
+      drive_id: drive.id,
+      confirmation_data: data,
+    });
+    refetchApplications();
     return true;
   };
 
@@ -185,89 +244,47 @@ export default function DriveDetailPage() {
             <div className="card-clean p-6 bg-white border-slate-300 shadow-sm space-y-5 sticky top-20">
               <div className="space-y-1 pb-3 border-b border-slate-100">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 block">
-                  Application Workflow
+                  Apply or Confirm
                 </span>
-                <h3 className="text-base font-bold text-slate-900">How to Apply</h3>
+                <h3 className="text-base font-bold text-slate-900">Choose an action</h3>
                 <p className="text-xs text-slate-500">
-                  Follow both steps so the placement team can track your application without manual follow-up.
+                  Apply on the company site, or send your details to the placement team. You can do both.
                 </p>
               </div>
 
-              {/* Step 1 */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                    1
-                  </span>
-                  <span className="text-xs font-bold text-slate-900">Apply on Official Portal</span>
-                </div>
-                <p className="text-[11px] text-slate-500 pl-7 leading-relaxed">
-                  Submit your actual application on the company&apos;s external careers page or Google form.
-                </p>
-                <div className="pl-7">
-                  {portalLaunches[drive.id] && <p className="mb-2 text-[10px] font-semibold text-emerald-700">Official portal opened · {formatDate(portalLaunches[drive.id])}</p>}
-                  {isClosed || eligibilityIssues.length > 0 ? (
-                    <button
-                      disabled
-                      className="w-full bg-slate-100 text-slate-400 font-semibold py-2.5 rounded-xl text-xs cursor-not-allowed"
-                    >
-                      {isClosed ? "Applications Closed" : "Check Eligibility Before Applying"}
-                    </button>
-                  ) : (
-                    <a
-                      href={drive.officialApplyLink}
-                      onClick={() => setPortalLaunches((current) => ({ ...current, [drive.id]: new Date().toISOString() }))}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-                    >
-                      <Globe className="w-3.5 h-3.5" />
-                      Apply on Official Portal ↗
-                    </a>
-                  )}
-                </div>
-              </div>
+              {portalLaunches[drive.id] && <p className="text-[10px] font-semibold text-emerald-700">Official portal opened · {formatDate(portalLaunches[drive.id])}</p>}
+              <div className="grid grid-cols-2 gap-2">
+                {isClosed ? (
+                  <button disabled className="min-h-11 rounded-xl bg-slate-100 px-2 py-2 text-xs font-semibold text-slate-400 cursor-not-allowed">
+                    Applications Closed
+                  </button>
+                ) : (
+                  <a
+                    href={drive.officialApplyLink}
+                    onClick={() => setPortalLaunches((current) => ({ ...current, [drive.id]: new Date().toISOString() }))}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-h-11 rounded-xl bg-slate-900 px-2 py-2 text-xs font-semibold text-white hover:bg-slate-800 flex items-center justify-center gap-1 transition-colors shadow-xs"
+                  >
+                    <Globe className="w-3.5 h-3.5 flex-shrink-0" />
+                    Official Site ↗
+                  </a>
+                )}
 
-              {/* Step 2 */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                    2
-                  </span>
-                  <span className="text-xs font-bold text-slate-900">Confirm Participation</span>
-                </div>
-                <p className="text-[11px] text-slate-500 pl-7 leading-relaxed">
-                  Return here and confirm your application so the placement cell marks you as registered.
-                </p>
-
-                <div className="pl-7">
-                  {confirmed ? (
-                    <div className="bg-teal-50 border border-teal-200 text-teal-900 p-3 rounded-xl flex items-center gap-2 text-xs">
-                      <CheckCircle className="w-4 h-4 text-teal-600 flex-shrink-0" />
-                      <div>
-                        <p className="font-bold">Application Confirmed ✓</p>
-                        <p className="text-[10px] text-teal-700">Saved to My Applications on this browser</p>
-                      </div>
-                    </div>
-                  ) : !portalLaunches[drive.id] && !isClosed && eligibilityIssues.length === 0 ? (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] leading-5 text-amber-900">
-                      Complete step 1 on the official portal first. After returning, you can submit your participation details here.
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => !isClosed && eligibilityIssues.length === 0 && setShowConfirmDialog(true)}
-                      disabled={isClosed || eligibilityIssues.length > 0}
-                      className={`w-full font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs ${
-                        isClosed || eligibilityIssues.length > 0
-                          ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                          : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                      }`}
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      I&apos;ve Applied • Confirm Participation
-                    </button>
-                  )}
-                </div>
+                {confirmed ? (
+                  <div className="min-h-11 rounded-xl border border-teal-200 bg-teal-50 px-2 py-2 text-[11px] font-semibold text-teal-800 flex items-center justify-center gap-1 text-center">
+                    <CheckCircle className="w-3.5 h-3.5 flex-shrink-0 text-teal-600" /> Confirmed
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => !isClosed && setShowConfirmDialog(true)}
+                    disabled={isClosed}
+                    className={`min-h-11 rounded-xl px-2 py-2 text-xs font-semibold flex items-center justify-center gap-1 transition-colors shadow-xs ${isClosed ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700 text-white"}`}
+                  >
+                    <Check className="w-3.5 h-3.5 flex-shrink-0" />
+                    Confirm Here
+                  </button>
+                )}
               </div>
             </div>
 
@@ -275,31 +292,30 @@ export default function DriveDetailPage() {
             <div className="card-clean p-5 bg-white space-y-3 text-xs">
               <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Eligibility Criteria</h4>
               <div className="space-y-2 text-slate-600">
-                <div className={`rounded-lg p-3 ${eligibilityIssues.length ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-900"}`}>
-                  <p className="font-semibold">{eligibilityIssues.length ? "Eligibility criteria not met" : "You meet the listed academic criteria"}</p>
-                  {eligibilityIssues.map((issue) => <p key={issue} className="mt-1 text-[11px]">{issue}</p>)}
+                <div className="rounded-lg bg-slate-50 p-3 text-slate-700">
+                  <p className="font-semibold">Review the company’s listed criteria before applying.</p>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Allowed Branches:</span>
                   <span className="font-semibold text-slate-900 text-right">
-                    {drive.eligibility.branches.join(", ")}
+                    {drive.eligibility.branches.length ? drive.eligibility.branches.join(", ") : "Not specified"}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Minimum CGPA:</span>
-                  <span className="font-semibold text-slate-900">{drive.eligibility.minCGPA}</span>
+                  <span className="font-semibold text-slate-900">{drive.eligibility.minCGPA || "Not specified"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Max Backlogs:</span>
-                  <span className="font-semibold text-slate-900">{drive.eligibility.maxBacklogs}</span>
+                  <span className="font-semibold text-slate-900">{drive.eligibility.maxBacklogs === 99 ? "Not specified" : drive.eligibility.maxBacklogs}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Drive Date:</span>
-                  <span className="font-semibold text-slate-900">{formatDate(drive.driveDate)}</span>
+                  <span className="font-semibold text-slate-900">{drive.driveDate ? formatDate(drive.driveDate) : "Not specified"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Application Deadline:</span>
-                  <span className="font-semibold text-slate-900">{formatDate(drive.applicationDeadline)}</span>
+                  <span className="font-semibold text-slate-900">{drive.applicationDeadline ? formatDate(drive.applicationDeadline) : "Not specified"}</span>
                 </div>
               </div>
             </div>
@@ -312,8 +328,7 @@ export default function DriveDetailPage() {
         isOpen={showConfirmDialog}
         onClose={() => setShowConfirmDialog(false)}
         onConfirm={handleConfirm}
-        initialData={{ fullName: currentStudent.name, rollNumber: currentStudent.rollNumber, section: currentStudent.section, branch: currentStudent.branch, collegeEmail: currentStudent.email, phone: currentStudent.phone, resumeFileName: currentStudent.resumeFileName ?? "", applicationReferenceId: "", confirmed: false }}
-        onResumeUploaded={(fileName) => setCurrentStudent((current) => ({ ...current, resumeFileName: fileName }))}
+        initialData={{ classYear: "", section: "", degree: "", specialization: "", resumeFileName: "", applicationReferenceId: "", confirmed: false }}
       />
     </div>
   );

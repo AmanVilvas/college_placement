@@ -1,25 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle, Upload, X, AlertCircle } from "lucide-react";
+import { CheckCircle, X, AlertCircle } from "lucide-react";
 import { Drive } from "@/lib/types";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
-import { saveLocalFile } from "@/lib/localFiles";
 
 interface ConfirmParticipationDialogProps {
   drive: Drive;
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (data: ConfirmationFormData) => boolean | void;
+  onConfirm: (data: ConfirmationFormData) => boolean | void | Promise<boolean | void>;
   initialData?: Partial<ConfirmationFormData>;
-  onResumeUploaded?: (fileName: string) => void;
 }
 
 export interface ConfirmationFormData {
   fullName: string;
   rollNumber: string;
+  classYear: string;
   section: string;
   branch: string;
+  degree: string;
+  specialization: string;
   collegeEmail: string;
   phone: string;
   resumeFileName: string;
@@ -30,8 +31,11 @@ export interface ConfirmationFormData {
 const INITIAL_FORM: ConfirmationFormData = {
   fullName: "",
   rollNumber: "",
+  classYear: "",
   section: "",
   branch: "",
+  degree: "",
+  specialization: "",
   collegeEmail: "",
   phone: "",
   resumeFileName: "",
@@ -45,19 +49,23 @@ export function ConfirmParticipationDialog({
   onClose,
   onConfirm,
   initialData,
-  onResumeUploaded,
 }: ConfirmParticipationDialogProps) {
   const [form, setForm] = useState<ConfirmationFormData>(INITIAL_FORM);
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Partial<ConfirmationFormData>>({});
   const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
+    // Reset this form each time the dialog opens for a new drive.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm({ ...INITIAL_FORM, ...initialData, confirmed: false });
     setSubmitted(false);
     setErrors({});
     setSubmitError("");
+    // initialData is intentionally read only when opening; its parent passes a render-local object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, drive.id]);
 
   if (!isOpen) return null;
@@ -66,45 +74,38 @@ export function ConfirmParticipationDialog({
     const errs: Partial<Record<keyof ConfirmationFormData, string>> = {};
     if (!form.fullName.trim()) errs.fullName = "Full name is required";
     if (!form.rollNumber.trim()) errs.rollNumber = "Roll number is required";
+    if (!form.classYear.trim()) errs.classYear = "Class / year is required";
     if (!form.section.trim()) errs.section = "Section is required";
-    if (!form.branch.trim()) errs.branch = "Branch is required";
+    if (!form.degree.trim()) errs.degree = "Degree is required";
+    if (!form.specialization.trim()) errs.specialization = "Specialization is required";
     if (!form.collegeEmail.trim() || !form.collegeEmail.includes("@")) errs.collegeEmail = "Valid college email required";
     if (!/^\+?[0-9 ()-]{10,18}$/.test(form.phone.trim()) || form.phone.replace(/\D/g, "").length < 10) errs.phone = "Enter a valid phone number";
-    if (!form.resumeFileName.trim()) errs.resumeFileName = "Please upload your resume";
+    if (!form.resumeFileName.trim()) errs.resumeFileName = "Resume name is required";
     if (!form.confirmed) errs.confirmed = "Please check the confirmation box";
     return errs;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs as Partial<ConfirmationFormData>);
       return;
     }
-    const accepted = onConfirm(form);
-    if (accepted === false) {
-      setSubmitError("Registration could not be completed. Check that the drive is open, you are eligible, and your profile details match.");
-      return;
-    }
-    setSubmitted(true);
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024 || !/\.(pdf|doc|docx)$/i.test(file.name)) {
-      setErrors((err) => ({ ...err, resumeFileName: "Choose a PDF or DOC/DOCX file smaller than 5 MB." }));
-      return;
-    }
+    setIsSubmitting(true);
+    setSubmitError("");
     try {
-      await saveLocalFile("student-resume:s1", file);
-      setForm((f) => ({ ...f, resumeFileName: file.name }));
-      setErrors((err) => ({ ...err, resumeFileName: "" }));
-      onResumeUploaded?.(file.name);
+      const accepted = await onConfirm({ ...form, branch: form.specialization });
+      if (accepted === false) {
+        setSubmitError("We could not save your participation. Check the drive details and try again.");
+        return;
+      }
+      setSubmitted(true);
     } catch (error) {
-      setErrors((err) => ({ ...err, resumeFileName: error instanceof Error ? error.message : "Could not save this file locally." }));
+      setSubmitError(error instanceof Error ? error.message : "Could not save your participation. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -149,7 +150,7 @@ export function ConfirmParticipationDialog({
               Your participation for <strong>{drive.companyName}</strong> – {drive.role} has been recorded.
             </p>
             <p className="text-slate-400 text-xs mb-6">
-              Your registration is saved under My Applications in this browser. Your status is now <strong>Confirmed</strong>.
+              Your registration is saved to the placement database and appears under My Applications. Your status is now <strong>Confirmed</strong>.
             </p>
             <button
               onClick={onClose}
@@ -164,8 +165,8 @@ export function ConfirmParticipationDialog({
             <div className="flex gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100 text-xs text-blue-700">
               <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <p>
-                After completing your application on the official portal, submit this form so the placement
-                team can track your participation. This does <strong>not</strong> replace the official application.
+                Submit your student details here so the placement team can record your participation. You can also
+                apply separately on the official company portal.
               </p>
             </div>
 
@@ -201,37 +202,58 @@ export function ConfirmParticipationDialog({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                  Class / Year <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.classYear}
+                  onChange={(e) => setForm((f) => ({ ...f, classYear: e.target.value }))}
+                  placeholder="e.g. 3rd year or 2027 batch"
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.classYear ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                />
+                {errors.classYear && <p className="text-xs text-red-500 mt-1">{errors.classYear}</p>}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                   Section <span className="text-red-500">*</span>
                 </label>
-                <select
+                <input
+                  type="text"
                   value={form.section}
                   onChange={(e) => setForm((f) => ({ ...f, section: e.target.value }))}
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.section ? "border-red-300 bg-red-50" : "border-slate-200"}`}
-                >
-                  <option value="">Select section</option>
-                  <option value="A">Section A</option>
-                  <option value="B">Section B</option>
-                  <option value="C">Section C</option>
-                  <option value="D">Section D</option>
-                </select>
+                  placeholder="e.g. A"
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.section ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                />
                 {errors.section && <p className="text-xs text-red-500 mt-1">{errors.section}</p>}
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                  Branch <span className="text-red-500">*</span>
+                  Degree <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={form.branch}
-                  onChange={(e) => setForm((f) => ({ ...f, branch: e.target.value }))}
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.branch ? "border-red-300 bg-red-50" : "border-slate-200"}`}
-                >
-                  <option value="">Select branch</option>
-                  {["CSE", "IT", "ECE", "EEE", "ME", "CE", "MCA", "MBA"].map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-                {errors.branch && <p className="text-xs text-red-500 mt-1">{errors.branch}</p>}
+                <input
+                  type="text"
+                  value={form.degree}
+                  onChange={(e) => setForm((f) => ({ ...f, degree: e.target.value }))}
+                  placeholder="e.g. B.Tech"
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.degree ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                />
+                {errors.degree && <p className="text-xs text-red-500 mt-1">{errors.degree}</p>}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                  Specialization <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.specialization}
+                  onChange={(e) => setForm((f) => ({ ...f, specialization: e.target.value, branch: e.target.value }))}
+                  placeholder="e.g. Computer Science"
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.specialization ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                />
+                {errors.specialization && <p className="text-xs text-red-500 mt-1">{errors.specialization}</p>}
               </div>
 
               <div>
@@ -262,23 +284,18 @@ export function ConfirmParticipationDialog({
                 {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
               </div>
 
-              {/* Resume Upload */}
-              <div className="col-span-2">
+              {/* Resume name */}
+              <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                  Resume <span className="text-red-500">*</span>
+                  Resume Name <span className="text-red-500">*</span>
                 </label>
-                <label className={`flex items-center gap-3 border-2 border-dashed rounded-lg px-4 py-3 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors ${errors.resumeFileName ? "border-red-300 bg-red-50" : "border-slate-200"}`}>
-                  <Upload className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm text-slate-500">
-                    {form.resumeFileName || "Click to upload PDF / DOC (max 5MB)"}
-                  </span>
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx"
-                    className="hidden"
-                    onChange={handleFileChange}
-                  />
-                </label>
+                <input
+                  type="text"
+                  value={form.resumeFileName}
+                  onChange={(e) => setForm((f) => ({ ...f, resumeFileName: e.target.value }))}
+                  placeholder="e.g. Priya_Sharma_Resume.pdf"
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.resumeFileName ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                />
                 {errors.resumeFileName && <p className="text-xs text-red-500 mt-1">{errors.resumeFileName}</p>}
               </div>
 
@@ -308,9 +325,8 @@ export function ConfirmParticipationDialog({
                 className="mt-0.5 w-4 h-4 accent-indigo-600 flex-shrink-0"
               />
               <label htmlFor="confirm-check" className="text-xs text-slate-600 cursor-pointer leading-relaxed">
-                I confirm that I have completed the official application for{" "}
-                <strong>{drive.companyName} – {drive.role}</strong> on the official portal, and I am
-                submitting this form to inform the placement team of my participation.
+                I confirm that I want the placement team to record my participation for{" "}
+                <strong>{drive.companyName} – {drive.role}</strong> and am submitting these details for placement records.
               </label>
             </div>
             {errors.confirmed && <p className="text-xs text-red-500">{errors.confirmed}</p>}
@@ -320,10 +336,11 @@ export function ConfirmParticipationDialog({
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+              disabled={isSubmitting}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold py-3 rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
             >
               <CheckCircle className="w-4 h-4" />
-              I&apos;ve Applied • Confirm Participation
+              {isSubmitting ? "Saving…" : "Submit Participation Details"}
             </button>
           </form>
         )}

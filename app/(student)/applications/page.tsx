@@ -3,17 +3,53 @@
 import { StudentHeader } from "@/components/student/StudentHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
-import { drives as seededDrives } from "@/lib/data/companies";
-import { formatDate, formatPackage, APPLICATION_JOURNEY } from "@/lib/utils";
+import { formatDate, APPLICATION_JOURNEY } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { useStudentApplications } from "@/lib/studentState";
-import { useLocalStorageState } from "@/lib/useLocalStorageState";
-import { CheckCircle, Circle, FileText, Calendar, Building2 } from "lucide-react";
+import { useApiResource } from "@/lib/useApi";
+import type { Application } from "@/lib/types";
+import { CheckCircle, Circle, FileText } from "lucide-react";
 import Link from "next/link";
 
+interface ApiApplication {
+  id: string;
+  student_id: string;
+  drive_id: string;
+  status: string;
+  confirmation_data?: Application["confirmationData"];
+  applied_at?: string;
+  updated_at?: string;
+  drives?: { role_title?: string; company_id?: string; companies?: { name?: string; metadata?: { logoColor?: string } } };
+}
+
 export default function MyApplicationsPage() {
-  const { applications: myApps } = useStudentApplications();
-  const [drives] = useLocalStorageState("placement-helper:drives", seededDrives);
+  const { data: rows, error } = useApiResource<ApiApplication[]>("applications", {
+    select: "id,student_id,drive_id,status,confirmation_data,applied_at,updated_at,drives(role_title,company_id,companies(name,metadata))",
+    order: "applied_at.desc",
+    limit: "500",
+  }, { fallback: [] });
+  const databaseApps: Application[] = (rows ?? []).map((row) => {
+    const confirmation = row.confirmation_data;
+    const liveDrive = row.drives;
+    return {
+      id: row.id,
+      studentId: row.student_id,
+      studentName: confirmation?.fullName || "Student",
+      studentRollNumber: confirmation?.rollNumber || "",
+      studentBranch: (confirmation?.specialization || "") as Application["studentBranch"],
+      studentSection: confirmation?.section || "",
+      driveId: row.drive_id,
+      driveName: liveDrive?.role_title || "Placement drive",
+      companyId: liveDrive?.company_id || "",
+      companyName: liveDrive?.companies?.name || "Company",
+      status: row.status as Application["status"],
+      appliedAt: row.applied_at,
+      confirmedAt: confirmation?.confirmedAt || row.updated_at,
+      confirmationData: confirmation,
+      followUpCount: 0,
+      updatedAt: row.updated_at || row.applied_at || "",
+    };
+  });
+  const myApps = databaseApps;
 
   const statusGroups = {
     active: myApps.filter((a) => !["Placed", "Rejected", "Not Responded"].includes(a.status)),
@@ -25,6 +61,7 @@ export default function MyApplicationsPage() {
     <div>
       <StudentHeader title="My Applications" subtitle="Track your placement journey for each company" />
       <div className="p-6 space-y-6">
+        {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">Could not load applications from the placement database: {error}</p>}
 
         {myApps.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center py-24 text-center">
@@ -52,14 +89,13 @@ export default function MyApplicationsPage() {
                 </h2>
                 <div className="space-y-4">
                   {statusGroups.active.map((app) => {
-                    const drive = drives.find((d) => d.id === app.driveId);
                     const stepIndex = APPLICATION_JOURNEY.indexOf(app.status as typeof APPLICATION_JOURNEY[number]);
                     return (
                       <div key={app.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
                         <div className="flex items-start gap-4 mb-5">
                           <CompanyLogo
                             name={app.companyName}
-                            logoColor={drive?.companyLogoColor || "#6366f1"}
+                            logoColor="#6366f1"
                             size="md"
                           />
                           <div className="flex-1">
@@ -85,7 +121,6 @@ export default function MyApplicationsPage() {
                               const stepIdx = APPLICATION_JOURNEY.indexOf(step);
                               const isDone = stepIndex > stepIdx;
                               const isCurrent = stepIndex === stepIdx;
-                              const isNext = !isDone && !isCurrent;
                               return (
                                 <div key={step} className="flex items-center">
                                   <div className="flex flex-col items-center">
@@ -134,12 +169,11 @@ export default function MyApplicationsPage() {
                 </h2>
                 <div className="space-y-3">
                   {statusGroups.notResponded.map((app) => {
-                    const drive = drives.find((d) => d.id === app.driveId);
                     return (
                       <div key={app.id} className="bg-amber-50 rounded-xl border border-amber-200 p-4 flex items-center gap-4">
                         <CompanyLogo
                           name={app.companyName}
-                          logoColor={drive?.companyLogoColor || "#f59e0b"}
+                          logoColor="#f59e0b"
                           size="sm"
                         />
                         <div className="flex-1 min-w-0">

@@ -3,11 +3,15 @@
 import { useState, useMemo } from "react";
 import { StudentHeader } from "@/components/student/StudentHeader";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
+import { ConfirmParticipationDialog } from "@/components/shared/ConfirmParticipationDialog";
+import type { ConfirmationFormData } from "@/components/shared/ConfirmParticipationDialog";
 import { useApiResource } from "@/lib/useApi";
+import { apiMutate } from "@/lib/useApi";
+import type { Drive } from "@/lib/types";
 import {
   Building2, ExternalLink, Search, RefreshCw, Loader2,
   MapPin, DollarSign, GraduationCap, Briefcase, Phone, User,
-  ChevronDown, ChevronUp, Sparkles, X,
+  ChevronDown, ChevronUp, Sparkles, X, CheckCircle2,
 } from "lucide-react";
 
 interface ApiCompanyMeta {
@@ -34,6 +38,65 @@ interface ApiCompany {
   created_at?: string;
 }
 
+interface ApiDrive {
+  id: string;
+  company_id: string;
+  role_title: string;
+  job_type?: string;
+  package_lpa?: number | string | null;
+  stipend_monthly?: number | string | null;
+  location?: string | null;
+  work_mode?: string | null;
+  openings?: number;
+  application_deadline?: string | null;
+  drive_date?: string | null;
+  status?: string;
+  official_apply_link?: string | null;
+  description?: string | null;
+  eligibility?: Record<string, unknown>;
+  required_skills?: string[];
+  selection_process?: string[];
+  companies?: { name?: string; logo_url?: string; metadata?: { logoColor?: string } };
+}
+
+interface ApiApplication {
+  status: string;
+  drives?: { company_id?: string };
+}
+
+function asDrive(company: ApiCompany, row?: ApiDrive): Drive {
+  const metadata = company.metadata ?? {};
+  const role = row?.role_title ?? metadata.position?.split(/\r?\n/).map((line) => line.replace(/^\s*[-•*]\s*/, "").trim()).find(Boolean) ?? `${company.name} Placement Opportunity`;
+  return {
+    id: row?.id ?? company.id,
+    companyId: company.id,
+    companyName: company.name,
+    companyLogoUrl: company.logo_url,
+    companyLogoColor: metadata.logoColor ?? "#6366f1",
+    role,
+    jobType: "Full-time",
+    packageLPA: row?.package_lpa == null ? undefined : Number(row.package_lpa),
+    stipendMonthly: row?.stipend_monthly == null ? undefined : Number(row.stipend_monthly),
+    location: row?.location ?? metadata.location ?? "Not specified",
+    workMode: "On-site",
+    openings: row?.openings ?? 1,
+    applicationDeadline: row?.application_deadline ?? "",
+    driveDate: row?.drive_date ?? "",
+    status: row?.status === "Closed" || row?.status === "Completed" ? row.status : "Open",
+    officialApplyLink: row?.official_apply_link ?? company.website ?? "",
+    jobDescription: row?.description ?? company.description ?? "Placement opportunity shared by the placement office.",
+    eligibility: {
+      branches: Array.isArray(row?.eligibility?.branches) ? row.eligibility.branches as Drive["eligibility"]["branches"] : [],
+      minCGPA: Number(row?.eligibility?.minCGPA ?? row?.eligibility?.min_cgpa ?? 0),
+      maxBacklogs: Number(row?.eligibility?.maxBacklogs ?? row?.eligibility?.max_backlogs ?? 99),
+    },
+    requiredSkills: row?.required_skills ?? [],
+    selectionProcess: row?.selection_process ?? [],
+    importantInstructions: [],
+    createdAt: row?.id ? new Date().toISOString() : company.created_at ?? new Date().toISOString(),
+  };
+}
+
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value?: string | null }) {
   if (!value) return null;
   return (
@@ -50,10 +113,12 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
 }
 
 function CompanyCard({
-  company, isExpanded, onToggle,
-}: { company: ApiCompany; isExpanded: boolean; onToggle: () => void }) {
+  company, drive, confirmed, isExpanded, onToggle, onConfirmed,
+}: { company: ApiCompany; drive?: ApiDrive; confirmed: boolean; isExpanded: boolean; onToggle: () => void; onConfirmed: () => void }) {
   const meta = company.metadata ?? {};
   const logoColor = meta.logoColor ?? "#6366f1";
+  const [showConfirm, setShowConfirm] = useState(false);
+  const formDrive = asDrive(company, drive);
   const hasDetails = !!(meta.position || meta.qualification || meta.stipend ||
     meta.ctc || meta.location || meta.spoc || meta.trainer_details);
   const extraKeys = meta.extra_fields ? Object.keys(meta.extra_fields) : [];
@@ -74,13 +139,6 @@ function CompanyCard({
               </span>
             )}
           </div>
-          {company.website && (
-            <a href={company.website} target="_blank" rel="noopener noreferrer"
-              className="flex-shrink-0 p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-              title="Visit website">
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-          )}
         </div>
 
         <div className="flex flex-wrap gap-1.5 mb-3">
@@ -113,6 +171,27 @@ function CompanyCard({
         )}
       </div>
 
+      <div className="grid grid-cols-2 gap-2 px-5 pb-4">
+        {company.website ? (
+          <a href={company.website} target="_blank" rel="noopener noreferrer"
+            className="min-h-10 rounded-xl border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-700 hover:border-slate-400 flex items-center justify-center gap-1.5 transition-colors">
+            <ExternalLink className="w-3.5 h-3.5" /> Official Site
+          </a>
+        ) : (
+          <span className="min-h-10 rounded-xl border border-slate-100 px-2 py-2 text-xs text-slate-400 flex items-center justify-center">No official site</span>
+        )}
+        {confirmed ? (
+          <span className="min-h-10 rounded-xl bg-emerald-50 px-2 py-2 text-xs font-semibold text-emerald-700 flex items-center justify-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5" /> Applied
+          </span>
+        ) : (
+          <button onClick={() => setShowConfirm(true)}
+            className="min-h-10 rounded-xl bg-indigo-600 px-2 py-2 text-xs font-semibold text-white hover:bg-indigo-700 flex items-center justify-center gap-1.5 transition-colors">
+            <CheckCircle2 className="w-3.5 h-3.5" /> Confirm Application
+          </button>
+        )}
+      </div>
+
       {(hasDetails || extraKeys.length > 0) && (
         <div className="border-t border-slate-100">
           <button onClick={onToggle}
@@ -136,6 +215,17 @@ function CompanyCard({
           )}
         </div>
       )}
+      <ConfirmParticipationDialog
+        drive={formDrive}
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        initialData={{ confirmed: false }}
+        onConfirm={async (data: ConfirmationFormData) => {
+          await apiMutate("POST", "applications", { company_id: company.id, confirmation_data: data });
+          onConfirmed();
+          return true;
+        }}
+      />
     </div>
   );
 }
@@ -158,6 +248,19 @@ export default function StudentCompaniesPage() {
     { archived: "eq.false", limit: "500" },
     { fallback: [] }
   );
+  const { data: apiDrives } = useApiResource<ApiDrive[]>("drives", {
+    select: "id,company_id,role_title,job_type,package_lpa,stipend_monthly,location,work_mode,openings,application_deadline,drive_date,status,official_apply_link,description,eligibility,required_skills,selection_process",
+    limit: "1000",
+  }, { fallback: [] });
+  const { data: applications, refetch: refetchApplications } = useApiResource<ApiApplication[]>("applications", {
+    select: "id,status,drives(company_id)",
+    limit: "1000",
+  }, { fallback: [] });
+  const driveByCompany = new Map((apiDrives ?? []).map((drive) => [drive.company_id, drive]));
+  const confirmedCompanyIds = new Set((applications ?? [])
+    .filter((application) => application.status === "Confirmed" || application.status === "Applied")
+    .map((application) => application.drives?.company_id)
+    .filter((id): id is string => Boolean(id)));
 
   const companies = useMemo(() => {
     const list = apiCompanies ?? [];
@@ -269,8 +372,11 @@ export default function StudentCompaniesPage() {
               <CompanyCard
                 key={company.id}
                 company={company}
+                drive={driveByCompany.get(company.id)}
+                confirmed={confirmedCompanyIds.has(company.id)}
                 isExpanded={expandedId === company.id}
                 onToggle={() => setExpandedId(expandedId === company.id ? null : company.id)}
+                onConfirmed={refetchApplications}
               />
             ))}
           </div>

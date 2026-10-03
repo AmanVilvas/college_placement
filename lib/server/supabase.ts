@@ -1,9 +1,11 @@
 import { cookies } from "next/headers";
 import { ZodError } from "zod";
+import { Pool } from "pg";
 
 const ACCESS_COOKIE = "placement_access_token";
 const REFRESH_COOKIE = "placement_refresh_token";
 export const DEMO_SESSION_COOKIE = "placement_demo_session";
+let developmentPool: Pool | undefined;
 
 function config() {
   const url = process.env.SUPABASE_URL;
@@ -51,6 +53,7 @@ export async function authenticate(email: string, password: string) {
   });
   if (!body?.access_token || !body?.refresh_token) throw new ApiError(401, "Authentication failed");
   const jar = await cookies();
+  jar.delete(DEMO_SESSION_COOKIE);
   const options = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/" };
   jar.set(ACCESS_COOKIE, body.access_token, { ...options, maxAge: body.expires_in ?? 3600 });
   jar.set(REFRESH_COOKIE, body.refresh_token, { ...options, maxAge: 60 * 60 * 24 * 30 });
@@ -63,6 +66,7 @@ export async function register(email: string, password: string, metadata: Record
   });
   if (body?.access_token && body?.refresh_token) {
     const jar = await cookies();
+    jar.delete(DEMO_SESSION_COOKIE);
     const options = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/" };
     jar.set(ACCESS_COOKIE, body.access_token, { ...options, maxAge: body.expires_in ?? 3600 });
     jar.set(REFRESH_COOKIE, body.refresh_token, { ...options, maxAge: 60 * 60 * 24 * 30 });
@@ -134,6 +138,12 @@ export async function currentProfile() {
   if (demoCookie) {
     try {
       const demo = JSON.parse(demoCookie);
+      const demoAdmin = ["super_admin", "college_admin", "tpo", "coordinator"].includes(demo.role);
+      const realBackendConfigured = Boolean(process.env.SUPABASE_URL && !process.env.SUPABASE_URL.includes("YOUR_PROJECT_REF"));
+      const hasDatabaseIdentity = typeof demo.id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(demo.id);
+      if (realBackendConfigured && process.env.NODE_ENV !== "development" && demoAdmin && !hasDatabaseIdentity) {
+        throw new ApiError(401, "Sign in with your Supabase placement-office account to continue.");
+      }
       // If demo session already has real UUIDs, use them; otherwise fetch from DB
       const hasRealIds = demo.institution_id && !demo.institution_id.includes("demo") &&
                          demo.campus_id && !demo.campus_id.includes("demo");
@@ -142,15 +152,17 @@ export async function currentProfile() {
         : await fetchDefaultInstitutionCampus();
       return {
         user: { id: demo.id || "demo-user", email: demo.email || "student@college.edu", user_metadata: {} },
-        profile: { id: demo.id || "demo-user", role: demo.role || "student", ...ids, active: true },
+        profile: { id: demo.id || "demo-user", role: demo.role || "student", roll_number: demo.rollNumber, ...ids, active: true },
       };
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
       // ignore parse error
     }
   }
 
   // If Supabase credentials are not configured yet, return demo admin profile gracefully
   if (!process.env.SUPABASE_URL || process.env.SUPABASE_URL.includes("YOUR_PROJECT_REF")) {
+    if (process.env.NODE_ENV !== "development") throw new ApiError(503, "Supabase is not configured for this deployment.");
     return {
       user: { id: "demo-admin", email: "admin@college.edu", user_metadata: {} },
       profile: { id: "demo-admin", role: "college_admin", institution_id: "", campus_id: "", active: true },
@@ -171,12 +183,15 @@ export async function currentProfile() {
     }
   }
 
-  // In development / demo mode — fetch real institution & campus from DB
-  const realIds = await fetchDefaultInstitutionCampus();
-  return {
-    user: { id: "demo-user", email: "visitor@college.edu", user_metadata: {} },
-    profile: { id: "demo-user", role: "college_admin", ...realIds, active: true },
-  };
+  if (process.env.NODE_ENV === "development") {
+    const realIds = await fetchDefaultInstitutionCampus();
+    return {
+      user: { id: "admin-local", email: "admin@localhost", user_metadata: {} },
+      profile: { id: "admin-local", role: "college_admin", ...realIds, active: true },
+    };
+  }
+
+  throw new ApiError(401, "Sign in to continue.");
 }
 
 export async function updatePassword(password: string) {
@@ -212,10 +227,31 @@ export async function databaseRequest(path: string, init: RequestInit = {}) {
   }
 }
 
+/** Server-only database access for the unauthenticated local development preview. */
+export async function developmentDatabaseQuery<T = unknown>(sql: string, values: (string | number | boolean | null)[] = []): Promise<T[]> {
+  if (process.env.NODE_ENV !== "development") {
+    throw new ApiError(403, "Direct database access is only available in local development.");
+  }
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new ApiError(503, "Set DATABASE_URL to save shared placement data from the local admin preview.");
+  }
+
+  developmentPool ??= new Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false },
+    max: 3,
+  });
+  const { rows } = await developmentPool.query(sql, values);
+  return rows as T[];
+}
+
 export function apiError(error: unknown) {
   const status = error instanceof ApiError ? error.status : error instanceof ZodError ? 400 : 500;
-  if (status === 400) return Response.json({ error: "Invalid request", details: error instanceof ZodError ? error.issues : undefined }, { status });
   const message = error instanceof Error ? error.message : "Unexpected server error";
+  if (error instanceof ZodError) {
+    return Response.json({ error: "Invalid request", details: error.issues }, { status: 400 });
+  }
   if (status === 500) console.error("Placement API error:", error);
   return Response.json({ error: status === 500 ? "Unexpected server error" : message }, { status });
 }

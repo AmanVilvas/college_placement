@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 function Card({ children, eyebrow, title, description }: { children: React.ReactNode; eyebrow: string; title: string; description: string }) {
@@ -40,7 +40,17 @@ function Login({ admin }: { admin: boolean }) {
   </Card>;
 }
 export function StudentLogin() { return <Login admin={false} />; }
-export function AdminLogin() { return <Login admin />; }
+export function AdminLogin() {
+  const router = useRouter();
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") router.replace("/admin/dashboard");
+  }, [router]);
+
+  if (process.env.NODE_ENV === "development") {
+    return <main className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">Opening local admin preview…</main>;
+  }
+  return <Login admin />;
+}
 export function ChangePassword() {
   const router = useRouter(); const path = usePathname(); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setBusy(true); setError(""); const data = new FormData(event.currentTarget); const password = String(data.get("password")); if (password !== data.get("confirm")) { setError("The passwords do not match."); setBusy(false); return; } try { const response = await fetch("/api/auth/password", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) }); const body = await response.json(); if (!response.ok) throw new Error(body.error); router.replace(path.includes("admin") ? "/admin/dashboard" : "/dashboard"); router.refresh(); } catch (e) { setError(e instanceof Error ? e.message : "Could not update password."); } finally { setBusy(false); } }

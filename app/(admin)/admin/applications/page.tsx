@@ -3,23 +3,60 @@
 import { useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { applications as initialApplications } from "@/lib/data/applications";
-import { drives } from "@/lib/data/companies";
-import { Application, ApplicationStatus, Branch } from "@/lib/types";
+import { Application, ApplicationStatus } from "@/lib/types";
 import { formatDate, APPLICATION_JOURNEY } from "@/lib/utils";
-import { Search, Filter, CheckCircle2, Download, FileSpreadsheet, Eye, Edit3 } from "lucide-react";
+import { Search, CheckCircle2, Download, Eye } from "lucide-react";
 import Link from "next/link";
 import { useLocalStorageState } from "@/lib/useLocalStorageState";
+import { useApiResource } from "@/lib/useApi";
+
+interface ApiApplication {
+  id: string;
+  student_id: string;
+  drive_id: string;
+  status: string;
+  confirmation_data?: Application["confirmationData"];
+  applied_at?: string;
+  updated_at?: string;
+  student_profiles?: { full_name?: string; roll_number?: string; department?: string; section?: string };
+  drives?: { role_title?: string; company_id?: string; companies?: { name?: string } };
+}
 
 export default function AdminApplicationsPage() {
   const [stageOverrides, setStageOverrides] = useLocalStorageState<Record<string, ApplicationStatus>>("placement-helper:application-stages", {});
-  const applicationsList: Application[] = initialApplications.map((application) => ({ ...application, status: stageOverrides[application.id] ?? application.status }));
+  const { data: rows, loading, error } = useApiResource<ApiApplication[]>("applications", {
+    select: "id,student_id,drive_id,status,confirmation_data,applied_at,updated_at,student_profiles(full_name,roll_number,department,section),drives(role_title,company_id,companies(name))",
+    order: "applied_at.desc",
+    limit: "1000",
+  }, { fallback: [] });
+  const applicationsList: Application[] = (rows ?? []).map((row) => {
+    const confirmation = row.confirmation_data;
+    const branch = confirmation?.specialization || row.student_profiles?.department || "Unknown";
+    return {
+      id: row.id,
+      studentId: row.student_id,
+      studentName: confirmation?.fullName || row.student_profiles?.full_name || "Student",
+      studentRollNumber: confirmation?.rollNumber || row.student_profiles?.roll_number || "",
+      studentBranch: branch as Application["studentBranch"],
+      studentSection: confirmation?.section || row.student_profiles?.section || "",
+      driveId: row.drive_id,
+      driveName: row.drives?.role_title || "Placement drive",
+      companyId: row.drives?.company_id || "",
+      companyName: row.drives?.companies?.name || "Company",
+      status: (stageOverrides[row.id] ?? row.status) as ApplicationStatus,
+      appliedAt: row.applied_at,
+      confirmedAt: confirmation?.confirmedAt || row.updated_at,
+      confirmationData: confirmation,
+      followUpCount: 0,
+      updatedAt: row.updated_at || row.applied_at || new Date().toISOString(),
+    };
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [companyFilter, setCompanyFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [branchFilter, setBranchFilter] = useState("All");
 
-  const companiesList = ["All", ...Array.from(new Set(initialApplications.map((a) => a.companyName)))];
+  const companiesList = ["All", ...Array.from(new Set(applicationsList.map((a) => a.companyName)))];
   const branchesList = ["All", "CSE", "IT", "ECE", "EEE", "ME", "CE", "MCA", "MBA"];
 
   const filtered = applicationsList.filter((app) => {
@@ -72,6 +109,7 @@ export default function AdminApplicationsPage() {
       />
 
       <div className="p-6 space-y-6">
+        {error && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Could not load placement applications: {error}</p>}
         {/* Filters and Search Bar */}
         <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm space-y-3">
           <div className="flex flex-col md:flex-row items-center gap-3">
@@ -126,7 +164,7 @@ export default function AdminApplicationsPage() {
         {/* Applications Table */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3.5 bg-slate-50/50 border-b border-slate-100 text-xs text-slate-500">
-            <span>Showing <strong>{filtered.length}</strong> applications</span>
+            <span>{loading ? "Loading applications…" : <>Showing <strong>{filtered.length}</strong> applications</>}</span>
             <button
               onClick={handleExportCSV}
               className="text-indigo-600 font-semibold hover:underline flex items-center gap-1"
@@ -166,6 +204,10 @@ export default function AdminApplicationsPage() {
                             <CheckCircle2 className="w-3 h-3" /> Confirmed
                           </span>
                           <p className="text-[10px] text-slate-400 mt-0.5">{formatDate(app.confirmedAt)}</p>
+                          <p className="text-[10px] text-slate-500 mt-1">
+                            {[app.confirmationData?.classYear, app.confirmationData?.degree, app.confirmationData?.specialization].filter(Boolean).join(" · ")}
+                          </p>
+                          {app.confirmationData?.resumeFileName && <p className="text-[10px] text-slate-500">Resume: {app.confirmationData.resumeFileName}</p>}
                         </div>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">

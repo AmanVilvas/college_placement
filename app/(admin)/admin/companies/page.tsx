@@ -6,7 +6,7 @@ import { CompanyLogo } from "@/components/shared/CompanyLogo";
 import { AddCompanyDialog } from "@/components/admin/AddCompanyDialog";
 
 import { useApiResource, apiMutate } from "@/lib/useApi";
-import { Building2, Globe, ExternalLink, Plus, Search, Trash2, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
+import { Globe, ExternalLink, Plus, Search, Trash2, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 interface ApiCompany {
@@ -55,14 +55,8 @@ export default function AdminCompaniesPage() {
 
   const handleAdd = useCallback(
     async (newComp: Record<string, unknown>) => {
-      try {
-        await apiMutate("POST", "companies", newComp);
-        await refetchCompanies();
-        refetchDrives();
-      } catch (err) {
-        alert(`Failed to add company: ${(err as Error).message}`);
-        throw err; // re-throw so dialog stays open
-      }
+      await apiMutate("POST", "companies", newComp);
+      await Promise.all([refetchCompanies(), refetchDrives()]);
     },
     [refetchCompanies, refetchDrives]
   );

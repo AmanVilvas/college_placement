@@ -15,5 +15,5 @@ export function getDriveEligibilityIssues(drive: Drive, student: Student) {
 /** Date-only deadlines stay open through the end of the displayed deadline date. */
 export function isDriveAcceptingApplications(drive: Drive) {
   return (drive.status === "Open" || drive.status === "Closing Soon")
-    && getDaysUntilDeadline(drive.applicationDeadline) >= 0;
+    && (!drive.applicationDeadline || getDaysUntilDeadline(drive.applicationDeadline) >= 0);
 }

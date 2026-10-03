@@ -103,7 +103,7 @@ export interface Application {
   studentName: string;
   studentRollNumber: string;
   studentBranch: Branch;
-  studentSection: Section;
+  studentSection: string;
   driveId: string;
   driveName: string;  // role name
   companyId: string;
@@ -123,8 +123,11 @@ export interface Application {
 export interface ConfirmationData {
   fullName: string;
   rollNumber: string;
+  classYear?: string;
   section: string;
   branch: string;
+  degree?: string;
+  specialization?: string;
   collegeEmail: string;
   phone: string;
   resumeFileName?: string;
