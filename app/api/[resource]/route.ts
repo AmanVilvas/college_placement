@@ -197,7 +197,8 @@ export async function GET(request: Request, context: { params: Promise<{ resourc
     }
 
     if (localPreview && table === "applications") {
-      if (process.env.NODE_ENV === "production" && profile.role !== "student"
+      const isPlacementStaff = ["super_admin", "college_admin", "tpo", "coordinator", "admin-local"].includes(profile.role);
+      if (process.env.NODE_ENV === "production" && !isPlacementStaff && profile.role !== "student"
         && !incoming.get("select")?.includes("student_profiles")) {
         return Response.json({ data: [] });
       }
