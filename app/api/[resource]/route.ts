@@ -287,20 +287,29 @@ export async function POST(request: Request, context: { params: Promise<{ resour
 
       const submitted = applicationRequestSchema.parse(input);
       const localPreview = useDirectDatabase;
-      let studentProfile: { id: string; institution_id: string; campus_id: string; roll_number: string; department: string | null; cgpa: number | null; backlogs: number } | undefined;
+      type ApplicationStudentProfile = {
+        id: string; institution_id: string; campus_id: string; roll_number: string; full_name: string;
+        email: string | null; phone: string | null; department: string | null; section: string | null;
+        year_of_study: number | null; graduation_year: number | null; profile_data: Record<string, unknown> | null;
+        cgpa: number | null; backlogs: number;
+      };
+      let studentProfile: ApplicationStudentProfile | undefined;
 
       if (!localPreview && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(user.id)) {
         const { body: studentRows } = await databaseRequest(
-          `student_profiles?user_id=eq.${encodeURIComponent(user.id)}&select=id,institution_id,campus_id,roll_number,department,cgpa,backlogs&limit=1`,
+          `student_profiles?user_id=eq.${encodeURIComponent(user.id)}&select=id,institution_id,campus_id,roll_number,full_name,email,phone,department,section,year_of_study,graduation_year,profile_data,cgpa,backlogs&limit=1`,
         );
         studentProfile = Array.isArray(studentRows) ? studentRows[0] : undefined;
       } else if (localPreview) {
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(user.id);
-        const studentRows = await developmentDatabaseQuery<{ id: string; institution_id: string; campus_id: string; roll_number: string; department: string | null; cgpa: number | null; backlogs: number }>(
-          `select id, institution_id, campus_id, roll_number, department, cgpa, backlogs from public.student_profiles
-           where ($1::boolean and id::text = $2) or (campus_id = $3 and lower(roll_number) = lower($4))
+        const studentRows = await developmentDatabaseQuery<ApplicationStudentProfile>(
+          `select id, institution_id, campus_id, roll_number, full_name, email, phone, department, section, year_of_study, graduation_year,
+                  profile_data, cgpa, backlogs from public.student_profiles
+           where institution_id = $5 and campus_id = $3
+             and (($1::boolean and (id::text = $2 or user_id::text = $2))
+               or lower(roll_number) = lower($4))
            order by case when id::text = $2 then 0 else 1 end limit 1`,
-          [isUuid, user.id, profile.campus_id || null, submitted.confirmation_data.rollNumber],
+          [isUuid, user.id, profile.campus_id || null, profile.roll_number || submitted.confirmation_data.rollNumber, profile.institution_id || null],
         );
         studentProfile = studentRows[0];
       }
@@ -308,10 +317,6 @@ export async function POST(request: Request, context: { params: Promise<{ resour
       if (!studentProfile) {
         throw new ApiError(403, "Your student account is not linked to a placement profile. Contact the placement office.");
       }
-      if (studentProfile.roll_number.trim().toLowerCase() !== submitted.confirmation_data.rollNumber.toLowerCase()) {
-        throw new ApiError(400, "The roll number must match your placement profile.");
-      }
-
       let driveId = submitted.drive_id;
       if (submitted.company_id) {
         if (localPreview) {
@@ -409,8 +414,21 @@ export async function POST(request: Request, context: { params: Promise<{ resour
       }
 
       const now = new Date().toISOString();
+      const profileData = studentProfile.profile_data ?? {};
+      const profileYear = profileData.class_year ?? profileData.classYear ?? studentProfile.year_of_study ?? studentProfile.graduation_year;
+      const yearNumber = Number(profileYear);
+      const yearSuffix = yearNumber % 100 >= 11 && yearNumber % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[yearNumber % 10] || "th";
+      const profileClassYear = Number.isInteger(yearNumber) && yearNumber >= 1 && yearNumber <= 8
+        ? `${yearNumber}${yearSuffix} year`
+        : profileYear == null ? submitted.confirmation_data.classYear : String(profileYear);
       const confirmationData = {
         ...submitted.confirmation_data,
+        fullName: submitted.confirmation_data.fullName,
+        rollNumber: submitted.confirmation_data.rollNumber,
+        classYear: profileClassYear,
+        section: studentProfile.section || submitted.confirmation_data.section,
+        degree: submitted.confirmation_data.degree,
+        specialization: submitted.confirmation_data.specialization,
         branch: submitted.confirmation_data.specialization,
         confirmedAt: now,
       };

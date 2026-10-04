@@ -9,12 +9,17 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
 import { AdminStudentDocuments } from "@/components/admin/AdminStudentDocuments";
 import { Application, ApplicationStatus, PlacementStatus } from "@/lib/types";
-import { formatDate, APPLICATION_JOURNEY } from "@/lib/utils";
+import { formatDate, formatDateTime, APPLICATION_JOURNEY } from "@/lib/utils";
 import { apiMutate, useApiResource } from "@/lib/useApi";
 import {
-  ArrowLeft, Mail, Phone, CheckCircle2, Edit3, Check, X
+  ArrowLeft, Mail, Phone, CheckCircle2, Edit3, Check, X, PhoneCall, Clock, MessageSquareText, ExternalLink
 } from "lucide-react";
 import Link from "next/link";
+
+type StudentVoiceCall = {
+  id: string; status: string; summary?: string | null; sentiment?: string | null; call_duration_seconds?: number | null;
+  transcript?: string | null; recording_url?: string | null; created_at: string; role_title: string; company_name: string;
+};
 
 export default function AdminStudentDetailPage() {
   const params = useParams();
@@ -30,6 +35,7 @@ export default function AdminStudentDetailPage() {
     applied_at?: string; updated_at?: string; student_profiles?: { full_name?: string; roll_number?: string; department?: string; section?: string };
     drives?: { role_title?: string; company_id?: string; companies?: { name?: string; logo_url?: string; metadata?: { logoColor?: string } } };
   }>>("applications", { select: "id,student_id,drive_id,status,confirmation_data,applied_at,updated_at,student_profiles(full_name,roll_number,department,section),drives(role_title,company_id,companies(name,logo_url,metadata))", limit: "1000" }, { fallback: [] });
+  const { data: voiceCallRows, loading: voiceCallsLoading, error: voiceCallsError } = useApiResource<StudentVoiceCall[]>("calls", { studentId }, { fallback: [] });
   const studentRow = studentRows?.[0];
   const student = studentRow ? {
     id: studentRow.id,
@@ -65,6 +71,7 @@ export default function AdminStudentDetailPage() {
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<ApplicationStatus>("Applied");
   const [statusMessage, setStatusMessage] = useState("");
+  const [statusError, setStatusError] = useState(false);
 
   if (!student && studentLoading) return <DataSkeleton label="Loading student…" className="p-8" count={4} />;
   if (!student) {
@@ -80,11 +87,14 @@ export default function AdminStudentDetailPage() {
 
   const handleUpdateAppStatus = async (appId: string, newStatus: ApplicationStatus) => {
     setStatusMessage("");
+    setStatusError(false);
     try {
-      await apiMutate("PATCH", `applications/${appId}`, { status: newStatus });
+      await apiMutate("POST", "notifications", { action: "application_status", applicationId: appId, status: newStatus });
       await refetchApplications();
       setEditingAppId(null);
+      setStatusMessage(`Application marked ${newStatus}. The student was notified in their Notifications page.`);
     } catch (error) {
+      setStatusError(true);
       setStatusMessage(error instanceof Error ? error.message : "Could not save application status.");
     }
   };
@@ -169,7 +179,24 @@ export default function AdminStudentDetailPage() {
 
         <AdminStudentDocuments studentId={studentId}/>
 
-        {statusMessage && <p role="status" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-900">{statusMessage}</p>}
+        <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-2"><PhoneCall className="h-4 w-4 text-red-600"/><h2 className="text-base font-bold text-slate-900">Voice follow-ups</h2></div>
+          <p className="mt-1 text-xs text-slate-500">Call outcomes and summaries for calls placed to this student.</p>
+          {voiceCallsError && <p role="alert" className="mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">Could not load call history: {voiceCallsError}</p>}
+          {voiceCallsLoading && <p className="mt-4 text-xs text-slate-500">Loading call history…</p>}
+          {!voiceCallsLoading && !voiceCallsError && !voiceCallRows?.length && <p className="mt-4 rounded-xl bg-slate-50 p-4 text-xs text-slate-500">No calls have been recorded for this student yet. New calls placed from Follow-ups will appear here.</p>}
+          <div className="mt-4 space-y-3">{voiceCallRows?.map((call) => {
+            const transcript = call.transcript?.replace(/<br\s*\/?>/gi, "\n").replace(/<\/?[^>]+>/g, "");
+            const safeRecordingUrl = (() => { try { const url = new URL(call.recording_url || ""); return ["http:", "https:"].includes(url.protocol) ? url.toString() : null; } catch { return null; } })();
+            return <article key={call.id} className="rounded-xl border border-slate-200 p-4">
+              <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start"><div><div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold text-slate-900">{call.company_name} · {call.role_title}</h3><span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-slate-700">{call.status.replaceAll("_", " ")}</span>{call.sentiment && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">{call.sentiment}</span>}</div><p className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500"><Clock className="h-3 w-3"/>{formatDateTime(call.created_at)}{call.call_duration_seconds != null ? ` · ${Math.floor(call.call_duration_seconds / 60)}m ${call.call_duration_seconds % 60}s` : ""}</p></div>{safeRecordingUrl && <a href={safeRecordingUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 underline">Recording <ExternalLink className="h-3 w-3"/></a>}</div>
+              <div className="mt-3 rounded-lg bg-slate-50 p-3"><p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500"><MessageSquareText className="h-3.5 w-3.5"/>Call summary</p><p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-slate-700">{call.summary || (call.status === "dispatched" ? "Call accepted by OmniDim. Summary will appear when the call result is available." : "No summary was provided by the voice provider.")}</p></div>
+              {transcript && <details className="mt-3"><summary className="cursor-pointer text-xs font-semibold text-slate-600">View conversation transcript</summary><pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-950 p-3 text-[11px] leading-5 text-slate-100">{transcript}</pre></details>}
+            </article>;
+          })}</div>
+        </section>
+
+        {statusMessage && <p role={statusError ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-sm ${statusError ? "border-red-100 bg-red-50 text-red-900" : "border-emerald-100 bg-emerald-50 text-emerald-900"}`}>{statusMessage}</p>}
 
         {/* Applications & Placement Journey Tracking Section */}
         <div className="space-y-4">

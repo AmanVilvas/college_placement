@@ -155,9 +155,9 @@ export default function AdminOperationsPage() {
   async function updateApplicationStatus(applicationId: string, status: ApplicationStatus) {
     setOperationMessage("");
     try {
-      await apiMutate("PATCH", `applications/${applicationId}`, { status });
+      await apiMutate("POST", "notifications", { action: "application_status", applicationId, status });
       await refetchApplications();
-      setOperationMessage("Candidate stage saved to the database and shared student tracker.");
+      setOperationMessage(`Candidate stage updated to ${status}; the student was notified in their Notifications page.`);
     } catch (error) {
       setOperationMessage(error instanceof Error ? error.message : "Could not update the candidate stage.");
     }

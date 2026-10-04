@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import Script from "next/script";
 import "./globals.css";
 
 const geist = localFont({
@@ -34,12 +33,6 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans bg-[#f8fafc] text-[#0f172a]">
         {children}
-        <Script
-          id="omnidimension-web-widget"
-          async
-          src="https://omnidim.io/web_widget.js?secret_key=f44a175928beebfc760c74a482c39bf7"
-          strategy="afterInteractive"
-        />
       </body>
     </html>
   );

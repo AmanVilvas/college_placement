@@ -163,6 +163,27 @@ create table if not exists public.follow_up_events (
 create index if not exists follow_up_events_campus_drive_student_idx
   on public.follow_up_events (campus_id, drive_id, student_id, created_at desc);
 
+create table if not exists public.voice_call_events (
+  id uuid primary key default gen_random_uuid(),
+  institution_id uuid not null references public.institutions on delete cascade,
+  campus_id uuid not null references public.campuses on delete cascade,
+  student_id uuid not null references public.student_profiles on delete cascade,
+  drive_id uuid not null references public.drives on delete cascade,
+  requested_by uuid references public.profiles on delete set null,
+  provider_call_id text,
+  status text not null default 'dispatched',
+  summary text,
+  sentiment text,
+  call_duration_seconds integer,
+  transcript text,
+  recording_url text,
+  provider_response jsonb not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create unique index if not exists voice_call_events_provider_call_idx
+  on public.voice_call_events(campus_id, provider_call_id) where provider_call_id is not null;
+
 create table if not exists public.application_stage_events (
   id uuid primary key default gen_random_uuid(),
   institution_id uuid not null references public.institutions on delete cascade,
@@ -317,12 +338,16 @@ create table if not exists public.events (
   campus_id uuid not null references public.campuses on delete cascade,
   title text not null,
   description text,
+  event_type text not null default 'Campus event',
+  meeting_url text,
   starts_at timestamptz,
   ends_at timestamptz,
   visibility text not null default 'campus',
   created_by uuid references public.profiles,
   created_at timestamptz not null default now()
 );
+alter table public.events add column if not exists event_type text not null default 'Campus event';
+alter table public.events add column if not exists meeting_url text;
 
 create table if not exists public.alumni_profiles (
   id uuid primary key default gen_random_uuid(),

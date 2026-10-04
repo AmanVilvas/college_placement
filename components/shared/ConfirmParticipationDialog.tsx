@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle, X, AlertCircle } from "lucide-react";
 import { Drive } from "@/lib/types";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
+import { useStudentProfile } from "@/lib/studentState";
 
 interface ConfirmParticipationDialogProps {
   drive: Drive;
@@ -43,6 +44,30 @@ const INITIAL_FORM: ConfirmationFormData = {
   confirmed: false,
 };
 
+interface StudentProfileDetails {
+  name?: string | null;
+  rollNumber?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  branch?: string | null;
+  section?: string | null;
+  year?: string | null;
+  classYear?: string | null;
+  graduationYear?: number | string | null;
+  degree?: string | null;
+  specialization?: string | null;
+  resumeUrl?: string | null;
+}
+
+function formatYear(year?: string | number | null, graduationYear?: string | number | null) {
+  const value = Number(year);
+  if (Number.isInteger(value) && value >= 1 && value <= 8) {
+    const suffix = value % 100 >= 11 && value % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[value % 10] || "th";
+    return `${value}${suffix} year`;
+  }
+  return graduationYear ? `${graduationYear} batch` : "";
+}
+
 export function ConfirmParticipationDialog({
   drive,
   isOpen,
@@ -51,6 +76,11 @@ export function ConfirmParticipationDialog({
   initialData,
 }: ConfirmParticipationDialogProps) {
   const [form, setForm] = useState<ConfirmationFormData>(INITIAL_FORM);
+  const [student] = useStudentProfile();
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileLoadError, setProfileLoadError] = useState("");
+  const [profileResume, setProfileResume] = useState("");
+  const [changeResume, setChangeResume] = useState(true);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Partial<ConfirmationFormData>>({});
@@ -60,10 +90,49 @@ export function ConfirmParticipationDialog({
     if (!isOpen) return;
     // Reset this form each time the dialog opens for a new drive.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setForm({ ...INITIAL_FORM, ...initialData, confirmed: false });
+    const initialize = (profile: StudentProfileDetails = {}) => {
+      const savedResume = profile.resumeUrl || student.resumeUrl || initialData?.resumeUrl || "";
+      setForm({
+        ...INITIAL_FORM,
+        ...initialData,
+        fullName: profile.name || student.name || initialData?.fullName || "",
+        rollNumber: profile.rollNumber || student.rollNumber || initialData?.rollNumber || "",
+        classYear: profile.classYear || formatYear(profile.year || student.year, profile.graduationYear || student.graduationYear)
+          || initialData?.classYear || "",
+        section: profile.section || student.section || initialData?.section || "",
+        branch: profile.specialization || profile.branch || student.branch || initialData?.specialization || "",
+        degree: profile.degree || initialData?.degree || "",
+        specialization: profile.specialization || profile.branch || student.branch || initialData?.specialization || "",
+        collegeEmail: profile.email || student.email || initialData?.collegeEmail || "",
+        phone: profile.phone || student.phone || initialData?.phone || "",
+        resumeUrl: savedResume,
+        confirmed: false,
+      });
+      setProfileResume(savedResume);
+      setChangeResume(!savedResume);
+    };
+    const controller = new AbortController();
+    setProfileLoading(true);
+    setProfileLoadError("");
+    initialize({
+      name: student.name, rollNumber: student.rollNumber, email: student.email, phone: student.phone,
+      branch: student.branch, section: student.section, year: student.year,
+      graduationYear: student.graduationYear, resumeUrl: student.resumeUrl,
+    });
+    fetch("/api/student/profile", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || "Could not load your profile.");
+        initialize(body.data as StudentProfileDetails);
+      })
+      .catch((error: Error) => {
+        if (error.name !== "AbortError") setProfileLoadError("Some fields could not be refreshed from your profile. Check them before submitting.");
+      })
+      .finally(() => { if (!controller.signal.aborted) setProfileLoading(false); });
     setSubmitted(false);
     setErrors({});
     setSubmitError("");
+    return () => controller.abort();
     // initialData is intentionally read only when opening; its parent passes a render-local object.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, drive.id]);
@@ -173,7 +242,9 @@ export function ConfirmParticipationDialog({
             </div>
 
             {/* Form Fields */}
-            <div className="grid grid-cols-2 gap-4">
+            {profileLoading && <p role="status" className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">Loading your latest profile details…</p>}
+            {profileLoadError && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{profileLoadError}</p>}
+            <fieldset disabled={profileLoading} className="grid grid-cols-2 gap-4 disabled:opacity-70">
               <div className="col-span-2">
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                   Full Name <span className="text-red-500">*</span>
@@ -209,9 +280,9 @@ export function ConfirmParticipationDialog({
                 <input
                   type="text"
                   value={form.classYear}
-                  onChange={(e) => setForm((f) => ({ ...f, classYear: e.target.value }))}
+                  readOnly
                   placeholder="e.g. 3rd year or 2027 batch"
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-400 transition-colors ${errors.classYear ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none transition-colors ${errors.classYear ? "border-red-300 bg-red-50" : "border-slate-200 bg-slate-50"}`}
                 />
                 {errors.classYear && <p className="text-xs text-red-500 mt-1">{errors.classYear}</p>}
               </div>
@@ -223,9 +294,9 @@ export function ConfirmParticipationDialog({
                 <input
                   type="text"
                   value={form.section}
-                  onChange={(e) => setForm((f) => ({ ...f, section: e.target.value }))}
+                  readOnly
                   placeholder="e.g. A"
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-400 transition-colors ${errors.section ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none transition-colors ${errors.section ? "border-red-300 bg-red-50" : "border-slate-200 bg-slate-50"}`}
                 />
                 {errors.section && <p className="text-xs text-red-500 mt-1">{errors.section}</p>}
               </div>
@@ -291,13 +362,22 @@ export function ConfirmParticipationDialog({
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                   Resume Google Drive Link <span className="text-red-500">*</span>
                 </label>
+                {profileResume && !changeResume && (
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <a href={profileResume} target="_blank" rel="noopener noreferrer" className="max-w-[65%] truncate text-sm font-medium text-red-700 underline">Resume saved in profile</a>
+                    <button type="button" onClick={() => setChangeResume(true)} className="text-xs font-semibold text-red-700 hover:underline">Change for this application</button>
+                  </div>
+                )}
                 <input
                   type="url"
+                  hidden={Boolean(profileResume && !changeResume)}
                   value={form.resumeUrl}
                   onChange={(e) => setForm((f) => ({ ...f, resumeUrl: e.target.value }))}
                   placeholder="https://drive.google.com/file/d/..."
                   className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-400 transition-colors ${errors.resumeUrl ? "border-red-300 bg-red-50" : "border-slate-200"}`}
                 />
+                {profileResume && changeResume && <button type="button" onClick={() => { setForm((current) => ({ ...current, resumeUrl: profileResume })); setChangeResume(false); }} className="mt-1 text-[11px] font-semibold text-red-700 hover:underline">Use profile resume</button>}
+                {!profileResume && <p className="mt-1 text-[11px] text-slate-500">Add a Google Drive share link to <a href="/profile" className="font-semibold text-red-700 underline">My Profile</a> to reuse it next time.</p>}
                 {errors.resumeUrl && <p className="text-xs text-red-500 mt-1">{errors.resumeUrl}</p>}
               </div>
 
@@ -315,7 +395,7 @@ export function ConfirmParticipationDialog({
                   className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-400 transition-colors"
                 />
               </div>
-            </div>
+            </fieldset>
 
             {/* Confirmation Checkbox */}
             <div className={`flex gap-3 p-3 rounded-xl border ${errors.confirmed ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-200"}`}>

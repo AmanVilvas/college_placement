@@ -8,6 +8,7 @@ export const studentNavItems = [
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/applications", label: "My Applications", icon: FileText },
   { href: "/drives", label: "Upcoming Drives", icon: CalendarDays },
+  { href: "/events", label: "Events", icon: CalendarDays },
   { href: "/workspace", label: "Career Workspace", icon: Sparkles },
   { href: "/portfolio", label: "Portfolio Preview", icon: Briefcase },
   { href: "/notifications", label: "Notifications", icon: Bell },
@@ -19,6 +20,7 @@ export const adminNavGroups = [
   { label: "Recruitment", items: [
     { href: "/admin/companies", label: "Companies", icon: Building2 },
     { href: "/admin/drives", label: "Placement Drives", icon: CalendarDays },
+    { href: "/admin/events", label: "Events", icon: CalendarDays },
     { href: "/admin/students", label: "Students", icon: Users },
     { href: "/admin/applications", label: "Applications", icon: FileText },
     { href: "/admin/operations", label: "Operations center", icon: Workflow },

@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("broadcast"), title: z.string().trim().min(3).max(180), message: z.string().trim().min(5).max(5000), category: z.enum(["Company announcement", "Industry talk", "Placement update", "General notice"]), companyName: z.string().trim().max(120).optional(), department: z.string().trim().max(50).optional(), studentIds: z.array(z.string().uuid()).min(1).max(500).optional(), channels: z.object({ email: z.boolean(), whatsapp: z.boolean() }) }),
   z.object({ action: z.literal("shortlist"), applicationId: z.string().uuid(), roundDetails: z.string().trim().max(2000).optional() }),
+  z.object({ action: z.literal("application_status"), applicationId: z.string().uuid(), status: z.enum(["Eligible", "Interested", "Applied", "Confirmed", "Shortlisted", "Assessment", "Interview", "Selected", "Placed", "Rejected", "Not Responded"]) }),
 ]);
 const administrators = new Set(["super_admin", "college_admin", "tpo", "coordinator", "admin-local"]);
 
@@ -64,6 +65,34 @@ export async function POST(request: Request) {
     if (!administrators.has(profile.role)) throw new ApiError(403, "Only placement administrators can send student notifications.");
     if (!profile.campus_id || !profile.institution_id) throw new ApiError(400, "Your admin account is not linked to a campus.");
     const input = schema.parse(await request.json());
+
+    if (input.action === "application_status") {
+      const rows = await developmentDatabaseQuery<{ id: string; status: string; notification_id: string }>(
+        `with changed as (
+           update public.applications a set status=$1, updated_at=now()
+           where a.id=$2 and a.institution_id=$3 and a.campus_id=$4 and a.status is distinct from $1
+           returning a.id, a.student_id, a.drive_id, a.status, a.institution_id, a.campus_id
+         ), inserted_notification as (
+           insert into public.notifications (institution_id, campus_id, user_id, student_id, title, message, category, metadata)
+           select changed.institution_id, changed.campus_id, s.user_id, s.id,
+             'Placement update: ' || changed.status,
+             'Your application for ' || coalesce(c.name, 'this company') || ' — ' || coalesce(d.role_title, 'this drive') ||
+               ' is now marked ' || changed.status || '. Check the placement portal for next steps.',
+             'Placement update',
+             jsonb_build_object('applicationId', changed.id, 'driveId', d.id, 'companyName', c.name, 'status', changed.status)
+           from changed
+           join public.student_profiles s on s.id=changed.student_id
+           join public.drives d on d.id=changed.drive_id
+           join public.companies c on c.id=d.company_id
+           returning id
+         )
+         select changed.id, changed.status, inserted_notification.id as notification_id
+         from changed cross join inserted_notification`,
+        [input.status, input.applicationId, profile.institution_id, profile.campus_id],
+      );
+      if (!rows[0]) throw new ApiError(409, "No status change was made. Check that this application belongs to your campus and choose a different status.");
+      return Response.json({ data: { applicationId: rows[0].id, status: rows[0].status, notificationId: rows[0].notification_id, notified: true } });
+    }
 
     if (input.action === "broadcast") {
       const students = await developmentDatabaseQuery<{ id: string; user_id: string | null; full_name: string; email: string | null; profile_email: string | null; phone: string | null }>(

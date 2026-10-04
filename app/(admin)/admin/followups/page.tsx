@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { apiMutate, useApiResource } from "@/lib/useApi";
 import { formatDate, getDaysUntilDeadline } from "@/lib/utils";
 import {
-  AlertCircle, Filter, MessageSquare, Eye,
+  AlertCircle, Filter, MessageSquare, Eye, Phone,
   Clock, CheckCircle, XCircle, ChevronDown, Check, UserX, Loader2,
 } from "lucide-react";
 import Link from "next/link";
@@ -26,6 +26,7 @@ interface ApiFollowUp {
   student_roll_number: string;
   student_branch: string;
   student_section: string;
+  student_phone?: string | null;
   drive_id: string;
   drive_name: string;
   application_deadline: string | null;
@@ -41,6 +42,7 @@ export default function FollowUpsPage() {
     company: "", branch: "", section: "", status: "",
   });
   const [pendingFollowUpId, setPendingFollowUpId] = useState<string | null>(null);
+  const [pendingCallId, setPendingCallId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState("");
 
   const followUpApps = rows ?? [];
@@ -75,6 +77,22 @@ export default function FollowUpsPage() {
     } finally {
       setPendingFollowUpId(null);
     }
+  };
+
+  const handleCall = async (candidate: ApiFollowUp) => {
+    if (!candidate.student_phone) {
+      setActionMessage(`${candidate.student_name} has no phone number on their student profile.`);
+      return;
+    }
+    if (!window.confirm(`Start an automated placement follow-up call to ${candidate.student_name} about ${candidate.company_name} — ${candidate.drive_name}?`)) return;
+    const actionId = `${candidate.drive_id}:${candidate.student_id}`;
+    setPendingCallId(actionId); setActionMessage("");
+    try {
+      const result = await apiMutate<{ accepted: boolean; studentName: string }>("POST", "calls", { driveId: candidate.drive_id, studentId: candidate.student_id });
+      setActionMessage(result.accepted ? `OmniDim accepted the call request for ${result.studentName}.` : "OmniDim did not accept the call request.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Could not start the call.");
+    } finally { setPendingCallId(null); }
   };
 
   const notResponded = filtered.filter((a) => a.status === "Not Responded").length;
@@ -239,6 +257,7 @@ export default function FollowUpsPage() {
                     const daysLeft = app.application_deadline ? getDaysUntilDeadline(app.application_deadline) : 0;
                     const actionId = `${app.drive_id}:${app.student_id}`;
                     const isSending = pendingFollowUpId === actionId;
+                    const isCalling = pendingCallId === actionId;
 
                     return (
                       <tr
@@ -248,6 +267,7 @@ export default function FollowUpsPage() {
                         <td className="px-5 py-3.5">
                           <p className="font-semibold text-slate-900">{app.student_name}</p>
                           <p className="text-[11px] text-slate-400">{app.student_branch} • Sec {app.student_section}</p>
+                          <Link href={`/admin/students/${app.student_id}`} className="mt-1 inline-block text-[10px] font-semibold text-red-700 hover:underline">View call history</Link>
                         </td>
                         <td className="px-3 py-3.5 font-mono text-slate-600 font-medium">{app.student_roll_number}</td>
                         <td className="px-3 py-3.5">
@@ -274,12 +294,18 @@ export default function FollowUpsPage() {
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => void handleMarkFollowUp(app)}
-                              disabled={isSending}
+                              disabled={isSending || isCalling}
                               className="px-2.5 py-1 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1 shadow-2xs disabled:opacity-50"
                             >
                               {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageSquare className="w-3 h-3" />}
                               {isSending ? "Sending…" : "Send reminder"}
                             </button>
+                            <button
+                              onClick={() => void handleCall(app)}
+                              disabled={isSending || isCalling || !app.student_phone}
+                              title={app.student_phone ? "Start an OmniDim call for this student and drive" : "Add a phone number to the student profile first"}
+                              className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >{isCalling ? <Loader2 className="h-3 w-3 animate-spin" /> : <Phone className="h-3 w-3" />}{isCalling ? "Calling…" : "Call"}</button>
                             <Link
                               href={`/admin/students/${app.student_id}`}
                               className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"

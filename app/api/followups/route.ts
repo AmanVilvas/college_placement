@@ -26,7 +26,7 @@ export async function GET() {
     const rows = await developmentDatabaseQuery(
       `with candidates as (
          select s.id as student_id, s.full_name as student_name, s.roll_number as student_roll_number,
-                s.department as student_branch, s.section as student_section,
+                s.department as student_branch, s.section as student_section, s.phone as student_phone,
                 d.id as drive_id, d.role_title as drive_name, d.application_deadline,
                 c.name as company_name, a.id as application_id, coalesce(a.status, 'Not Responded') as status,
                 count(f.id)::int as follow_up_count
@@ -43,7 +43,7 @@ export async function GET() {
              else true end
            and coalesce(nullif(d.eligibility->>'minCGPA', '')::numeric, 0) <= coalesce(s.cgpa, 0)
            and coalesce(nullif(d.eligibility->>'maxBacklogs', '')::integer, 2147483647) >= coalesce(s.backlogs, 0)
-         group by s.id, d.id, c.name, a.id
+         group by s.id, d.id, c.name, a.id, s.phone
        )
        select * from candidates where application_id is null or status in ('Applied','Not Responded','Shortlisted','Assessment','Interview')
        order by case status when 'Not Responded' then 0 when 'Shortlisted' then 1 else 2 end, application_deadline asc nulls last, student_name asc

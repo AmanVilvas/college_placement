@@ -8,7 +8,7 @@ import { Application, ApplicationStatus } from "@/lib/types";
 import { formatDate, APPLICATION_JOURNEY } from "@/lib/utils";
 import { Search, CheckCircle2, Download, Eye } from "lucide-react";
 import Link from "next/link";
-import { useApiResource } from "@/lib/useApi";
+import { apiMutate, useApiResource } from "@/lib/useApi";
 
 interface ApiApplication {
   id: string;
@@ -55,6 +55,7 @@ export default function AdminApplicationsPage() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [branchFilter, setBranchFilter] = useState("All");
   const [statusMessage, setStatusMessage] = useState("");
+  const [statusError, setStatusError] = useState(false);
 
   const companiesList = ["All", ...Array.from(new Set(applicationsList.map((a) => a.companyName)))];
   const branchesList = ["All", "CSE", "IT", "ECE", "EEE", "ME", "CE", "MCA", "MBA"];
@@ -72,26 +73,13 @@ export default function AdminApplicationsPage() {
 
   const handleStatusChange = async (appId: string, newStatus: ApplicationStatus) => {
     setStatusMessage("");
+    setStatusError(false);
     try {
-      await fetch(`/api/applications/${encodeURIComponent(appId)}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json", "x-placement-admin-preview": "1" }, body: JSON.stringify({ status: newStatus }),
-      }).then(async (response) => {
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || "Could not save application status.");
-      });
-      refetch();
-      if (newStatus === "Shortlisted") {
-        const response = await fetch("/api/notifications", { method: "POST", headers: { "Content-Type": "application/json", "x-placement-admin-preview": "1" }, body: JSON.stringify({ action: "shortlist", applicationId: appId }) });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || "Status saved, but the student notification could not be sent.");
-        const delivery = data.data as { emailSent: number; whatsappSent: number; failures: { channel: string; error: string }[] };
-        setStatusMessage(delivery.failures.length
-          ? `Application marked Shortlisted. Email sent: ${delivery.emailSent}; WhatsApp sent: ${delivery.whatsappSent}; failed: ${delivery.failures.map((item) => `${item.channel}: ${item.error}`).join("; ")}`
-          : "Application marked Shortlisted and email/WhatsApp alerts sent.");
-      } else {
-        setStatusMessage("Application status saved.");
-      }
+      await apiMutate("POST", "notifications", { action: "application_status", applicationId: appId, status: newStatus });
+      await refetch();
+      setStatusMessage(`Application marked ${newStatus}. The student was notified in their Notifications page.`);
     } catch (error) {
+      setStatusError(true);
       setStatusMessage(error instanceof Error ? error.message : "Could not update application status.");
     }
   };
@@ -131,7 +119,7 @@ export default function AdminApplicationsPage() {
       />
 
       <div className="p-6 space-y-6">
-        {statusMessage && <p role="status" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-900">{statusMessage}</p>}
+        {statusMessage && <p role={statusError ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-sm ${statusError ? "border-red-100 bg-red-50 text-red-900" : "border-emerald-100 bg-emerald-50 text-emerald-900"}`}>{statusMessage}</p>}
         {error && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Could not load placement applications: {error}</p>}
         {/* Filters and Search Bar */}
         <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm space-y-3">

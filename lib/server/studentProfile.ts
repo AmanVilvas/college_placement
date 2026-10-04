@@ -13,6 +13,10 @@ export async function readStudentProfile(scope: string[]) {
     s.email, s.phone, s.department as branch, s.section, s.year_of_study::text as year,
     s.graduation_year as "graduationYear", s.cgpa::float8, s.tenth_percent::float8 as "tenthPercent",
     s.twelfth_percent::float8 as "twelfthPercent", s.backlogs, s.skills, s.created_at as "createdAt",
+    s.profile_data->>'degree' as degree,
+    coalesce(nullif(s.profile_data->>'specialization', ''), s.department) as specialization,
+    coalesce(s.profile_data->>'resume_url', s.profile_data->>'resumeUrl', '') as "resumeUrl",
+    coalesce(s.profile_data->>'class_year', s.profile_data->>'classYear') as "classYear",
     coalesce(s.profile_data->>'placementStatus', 'Unplaced') as "placementStatus",
     coalesce(s.profile_data->>'avatarUrl', '') as "avatarUrl",
     r.file_name as "resumeFileName", r.file_size as "resumeSize", r.updated_at as "resumeUpdatedAt"
