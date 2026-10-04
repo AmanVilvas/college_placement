@@ -36,7 +36,7 @@ export async function POST(request: Request) {
           `select s.id as student_id, s.roll_number, s.full_name, s.email, s.user_id,
                   s.department, s.section, s.year_of_study, s.graduation_year, s.phone,
                   s.cgpa, s.tenth_percent, s.twelfth_percent, s.backlogs, s.skills,
-                  p.email as profile_email, coalesce(p.active, true) as active
+                  s.profile_data, p.email as profile_email, coalesce(p.active, true) as active
            from public.student_profiles s
            left join public.profiles p on p.id = s.user_id
            where lower(s.roll_number) = lower($1)
@@ -70,9 +70,13 @@ export async function POST(request: Request) {
             if (profile.role !== "student") { await signOut(); throw new ApiError(401, "Invalid roll number or password."); }
             return Response.json({ ok: true, student });
           } else {
-            // Imported roll-number/password accounts are for local testing only.
-            // Real deployments must link every student to a Supabase Auth user.
-            if (process.env.NODE_ENV !== "development") {
+            // Imported roll-number/password credentials are enabled only for
+            // records explicitly marked as demo accounts. Ordinary imported
+            // students still need an activated Supabase Auth account.
+            const hostname = new URL(request.url).hostname.toLowerCase().replace(/^\[|\]$/g, "");
+            const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(hostname);
+            const isMarkedDemoAccount = studentRow.profile_data?.demo_account === true;
+            if (!isMarkedDemoAccount && !(isLocalhost && process.env.NODE_ENV === "development")) {
               throw new ApiError(401, "This student account needs to be activated by the placement office before sign-in.");
             }
             if (input.password !== input.rollNumber) throw new ApiError(401, "Invalid roll number or password.");
