@@ -6,6 +6,7 @@ import {
 export const studentNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/companies", label: "Companies", icon: Building2 },
+  { href: "/community", label: "Community", icon: Users },
   { href: "/applications", label: "My Applications", icon: FileText },
   { href: "/drives", label: "Upcoming Drives", icon: CalendarDays },
   { href: "/events", label: "Events", icon: CalendarDays },
@@ -19,6 +20,7 @@ export const adminNavGroups = [
   { label: "Overview", items: [{ href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard }] },
   { label: "Recruitment", items: [
     { href: "/admin/companies", label: "Companies", icon: Building2 },
+    { href: "/admin/community", label: "Company Community", icon: Users },
     { href: "/admin/drives", label: "Placement Drives", icon: CalendarDays },
     { href: "/admin/events", label: "Events", icon: CalendarDays },
     { href: "/admin/students", label: "Students", icon: Users },

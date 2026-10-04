@@ -170,6 +170,7 @@ export async function GET(request: Request, context: { params: Promise<{ resourc
         `select d.*, jsonb_build_object('name', c.name, 'logo_url', c.logo_url, 'metadata', c.metadata) as companies
          from public.drives d join public.companies c on c.id = d.company_id
          where d.institution_id = $1 and d.campus_id = $2
+           and c.archived = false
            and ($3::uuid is null or d.id = $3::uuid)
            and ($4::uuid is null or d.company_id = $4::uuid)
          order by d.created_at desc limit $5 offset $6`,
