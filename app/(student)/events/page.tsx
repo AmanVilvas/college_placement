@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { StudentHeader } from "@/components/student/StudentHeader";
 import { useApiResource } from "@/lib/useApi";
 import { CalendarDays, ExternalLink, MapPin, Video } from "lucide-react";
@@ -24,8 +25,12 @@ function dateLabel(value?: string | null) {
 
 export default function StudentEventsPage() {
   const { data, loading, error } = useApiResource<CampusEvent[]>("events", {}, { fallback: [] });
-  const now = Date.now();
-  const events = (data ?? []).filter((event) => !event.starts_at || new Date(event.starts_at).getTime() >= now);
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setNow(Date.now()), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const events = (data ?? []).filter((event) => !event.starts_at || now === null || new Date(event.starts_at).getTime() >= now);
 
   return <div>
     <StudentHeader title="Events" subtitle="Upcoming company sessions, lectures, workshops, and campus events" />

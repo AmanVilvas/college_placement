@@ -55,7 +55,10 @@ export async function GET() {
          coalesce(e.audience->>'kind','campus')='campus'
          or (e.audience->>'kind'='branch' and e.audience->'branches' ? s.department)
          or (e.audience->>'kind'='applied' and exists(select 1 from public.applications a where a.student_id=s.id))
-         or (e.audience->>'kind'='placed' and exists(select 1 from public.applications a where a.student_id=s.id and lower(a.status) in ('placed','selected')))
+         or (e.audience->>'kind'='placed' and exists(
+           select 1 from public.applications a where a.student_id=s.id
+             and lower(trim(a.status)) in ('placed','selected','offer received','joined')
+         ))
          or (e.audience->>'kind'='students' and e.audience->'studentIds' ? s.id::text)
        ) order by e.starts_at asc nulls last, e.created_at desc`,
       [profile.institution_id, profile.campus_id, profile.id, profile.roll_number ?? ""],

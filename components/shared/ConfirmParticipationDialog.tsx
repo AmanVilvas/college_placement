@@ -89,7 +89,6 @@ export function ConfirmParticipationDialog({
   useEffect(() => {
     if (!isOpen) return;
     // Reset this form each time the dialog opens for a new drive.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     const initialize = (profile: StudentProfileDetails = {}) => {
       const savedResume = profile.resumeUrl || student.resumeUrl || initialData?.resumeUrl || "";
       setForm({
@@ -112,13 +111,18 @@ export function ConfirmParticipationDialog({
       setChangeResume(!savedResume);
     };
     const controller = new AbortController();
-    setProfileLoading(true);
-    setProfileLoadError("");
-    initialize({
-      name: student.name, rollNumber: student.rollNumber, email: student.email, phone: student.phone,
-      branch: student.branch, section: student.section, year: student.year,
-      graduationYear: student.graduationYear, resumeUrl: student.resumeUrl,
-    });
+    const initializeTimer = window.setTimeout(() => {
+      setProfileLoading(true);
+      setProfileLoadError("");
+      initialize({
+        name: student.name, rollNumber: student.rollNumber, email: student.email, phone: student.phone,
+        branch: student.branch, section: student.section, year: student.year,
+        graduationYear: student.graduationYear, resumeUrl: student.resumeUrl,
+      });
+      setSubmitted(false);
+      setErrors({});
+      setSubmitError("");
+    }, 0);
     fetch("/api/student/profile", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const body = await response.json();
@@ -129,10 +133,7 @@ export function ConfirmParticipationDialog({
         if (error.name !== "AbortError") setProfileLoadError("Some fields could not be refreshed from your profile. Check them before submitting.");
       })
       .finally(() => { if (!controller.signal.aborted) setProfileLoading(false); });
-    setSubmitted(false);
-    setErrors({});
-    setSubmitError("");
-    return () => controller.abort();
+    return () => { window.clearTimeout(initializeTimer); controller.abort(); };
     // initialData is intentionally read only when opening; its parent passes a render-local object.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, drive.id]);

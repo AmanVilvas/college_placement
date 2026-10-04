@@ -143,19 +143,19 @@ async function fetchDefaultInstitutionCampus(): Promise<{ institution_id: string
 }
 
 export async function currentProfile() {
-  // The admin UI is intentionally available without staff auth in the local
-  // build phase. Keep that preview scoped to localhost admin API requests so
-  // a student demo cookie does not turn the admin screens into student scope.
-  if (process.env.NODE_ENV === "development") {
-    const incoming = await headers();
-    const host = (incoming.get("host") || "").toLowerCase().replace(/:\d+$/, "");
-    if (incoming.get("x-placement-admin-preview") === "1" && ["localhost", "127.0.0.1", "[::1]", "::1"].includes(host)) {
-      const ids = await fetchDefaultInstitutionCampus();
-      return {
-        user: { id: "admin-local", email: "admin@localhost", user_metadata: {} },
-        profile: { id: "admin-local", role: "college_admin", ...ids, active: true },
-      };
-    }
+  // Admin auth is intentionally bypassed during the current build phase. Admin
+  // pages send this marker so a saved student session cannot scope admin API
+  // calls as a student. In development, restrict the preview to localhost.
+  const incoming = await headers();
+  const host = (incoming.get("host") || "").toLowerCase().replace(/:\d+$/, "");
+  const adminPreviewRequested = incoming.get("x-placement-admin-preview") === "1";
+  const localPreviewHost = ["localhost", "127.0.0.1", "[::1]", "::1"].includes(host);
+  if (adminPreviewRequested && (process.env.NODE_ENV === "production" || (process.env.NODE_ENV === "development" && localPreviewHost))) {
+    const ids = await fetchDefaultInstitutionCampus();
+    return {
+      user: { id: "admin-local", email: "admin@localhost", user_metadata: {} },
+      profile: { id: "admin-local", role: "college_admin", ...ids, active: true },
+    };
   }
 
   const jar = await cookies();

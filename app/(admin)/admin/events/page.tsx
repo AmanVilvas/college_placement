@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { apiMutate, useApiResource } from "@/lib/useApi";
 import { CalendarDays, ExternalLink, MapPin, Plus, Users, Video } from "lucide-react";
@@ -28,9 +28,15 @@ export default function AdminEventsPage() {
   const [audienceKind, setAudienceKind] = useState<Audience["kind"]>("campus");
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [now, setNow] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [messageError, setMessageError] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setNow(Date.now()), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   async function createEvent(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setMessage(""); setMessageError(false);
@@ -42,8 +48,8 @@ export default function AdminEventsPage() {
     finally { setSaving(false); }
   }
 
-  const upcoming = (data ?? []).filter((event) => !event.starts_at || new Date(event.starts_at).getTime() >= Date.now());
-  const past = (data ?? []).filter((event) => event.starts_at && new Date(event.starts_at).getTime() < Date.now());
+  const upcoming = (data ?? []).filter((event) => !event.starts_at || now === null || new Date(event.starts_at).getTime() >= now);
+  const past = (data ?? []).filter((event) => now !== null && event.starts_at && new Date(event.starts_at).getTime() < now);
   const field = "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal";
   return <div>
     <AdminHeader title="Events" subtitle="Publish company sessions, guest lectures, workshops, and campus events" />
