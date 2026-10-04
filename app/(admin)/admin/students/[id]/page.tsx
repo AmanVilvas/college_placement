@@ -55,6 +55,10 @@ export default function AdminStudentDetailPage() {
   }));
   const placementStatus: PlacementStatus = studentApps.some((application) => ["Selected", "Placed"].includes(application.status))
     ? "Placed" : studentApps.length ? "In Process" : "Unplaced";
+  const appliedCount = studentApps.filter((application) => application.status === "Applied").length;
+  const confirmedCount = studentApps.filter((application) => application.status === "Confirmed").length;
+  const placedCount = studentApps.filter((application) => application.status === "Placed").length;
+  const selectedCount = studentApps.filter((application) => application.status === "Selected").length;
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<ApplicationStatus>("Applied");
   const [statusMessage, setStatusMessage] = useState("");
@@ -128,7 +132,7 @@ export default function AdminStudentDetailPage() {
           </div>
 
           {/* Academic & Stats Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mt-6 pt-6 border-t border-slate-100 text-xs">
             <div>
               <span className="text-slate-400">Current CGPA:</span>
               <p className="text-base font-bold text-slate-800">{student.cgpa} / 10.0</p>
@@ -146,6 +150,18 @@ export default function AdminStudentDetailPage() {
             <div>
               <span className="text-slate-400">Total Applications:</span>
               <p className="text-base font-bold text-indigo-600">{studentApps.length}</p>
+            </div>
+            <div>
+              <span className="text-slate-400">Applied:</span>
+              <p className="text-base font-bold text-sky-700">{appliedCount}</p>
+            </div>
+            <div>
+              <span className="text-slate-400">Confirmed:</span>
+              <p className="text-base font-bold text-teal-700">{confirmedCount}</p>
+            </div>
+            <div>
+              <span className="text-slate-400">Selected / Placed:</span>
+              <p className="text-base font-bold text-emerald-700">{selectedCount} / {placedCount}</p>
             </div>
           </div>
         </div>
@@ -310,7 +326,7 @@ export default function AdminStudentDetailPage() {
                           <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" /> Student Confirmation Submission Details
                         </span>
                         <div className="grid sm:grid-cols-3 gap-2 text-slate-600 pt-1">
-                          <div>Resume: <strong className="text-slate-800">{app.confirmationData.resumeFileName || "Standard Profile Resume"}</strong></div>
+                          <div>Resume: {app.confirmationData.resumeUrl ? <a href={app.confirmationData.resumeUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-700 underline">Open Google Drive link</a> : <strong className="text-slate-800">Not provided</strong>}</div>
                           <div>Email: <strong className="text-slate-800">{app.confirmationData.collegeEmail}</strong></div>
                           <div>Phone: <strong className="text-slate-800">{app.confirmationData.phone}</strong></div>
                         </div>

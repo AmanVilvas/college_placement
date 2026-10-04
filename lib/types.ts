@@ -130,7 +130,7 @@ export interface ConfirmationData {
   specialization?: string;
   collegeEmail: string;
   phone: string;
-  resumeFileName?: string;
+  resumeUrl?: string;
   applicationReferenceId?: string;
   confirmedAt: string;
 }
@@ -139,6 +139,7 @@ export interface ConfirmationData {
 // Notification
 // ============================================================
 export type NotificationCategory =
+  | "Placement update"
   | "New Drive"
   | "Deadline Reminder"
   | "Shortlist"

@@ -23,7 +23,7 @@ export interface ConfirmationFormData {
   specialization: string;
   collegeEmail: string;
   phone: string;
-  resumeFileName: string;
+  resumeUrl: string;
   applicationReferenceId: string;
   confirmed: boolean;
 }
@@ -38,7 +38,7 @@ const INITIAL_FORM: ConfirmationFormData = {
   specialization: "",
   collegeEmail: "",
   phone: "",
-  resumeFileName: "",
+  resumeUrl: "",
   applicationReferenceId: "",
   confirmed: false,
 };
@@ -80,7 +80,8 @@ export function ConfirmParticipationDialog({
     if (!form.specialization.trim()) errs.specialization = "Specialization is required";
     if (!form.collegeEmail.trim() || !form.collegeEmail.includes("@")) errs.collegeEmail = "Valid college email required";
     if (!/^\+?[0-9 ()-]{10,18}$/.test(form.phone.trim()) || form.phone.replace(/\D/g, "").length < 10) errs.phone = "Enter a valid phone number";
-    if (!form.resumeFileName.trim()) errs.resumeFileName = "Resume name is required";
+    if (!form.resumeUrl.trim()) errs.resumeUrl = "Resume Google Drive link is required";
+    else if (!/^https:\/\/(drive|docs)\.google\.com\//i.test(form.resumeUrl.trim())) errs.resumeUrl = "Paste a Google Drive or Docs share link";
     if (!form.confirmed) errs.confirmed = "Please check the confirmation box";
     return errs;
   };
@@ -284,19 +285,19 @@ export function ConfirmParticipationDialog({
                 {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
               </div>
 
-              {/* Resume name */}
+              {/* Google Drive resume link */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                  Resume Name <span className="text-red-500">*</span>
+                  Resume Google Drive Link <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="text"
-                  value={form.resumeFileName}
-                  onChange={(e) => setForm((f) => ({ ...f, resumeFileName: e.target.value }))}
-                  placeholder="e.g. Priya_Sharma_Resume.pdf"
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.resumeFileName ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                  type="url"
+                  value={form.resumeUrl}
+                  onChange={(e) => setForm((f) => ({ ...f, resumeUrl: e.target.value }))}
+                  placeholder="https://drive.google.com/file/d/..."
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.resumeUrl ? "border-red-300 bg-red-50" : "border-slate-200"}`}
                 />
-                {errors.resumeFileName && <p className="text-xs text-red-500 mt-1">{errors.resumeFileName}</p>}
+                {errors.resumeUrl && <p className="text-xs text-red-500 mt-1">{errors.resumeUrl}</p>}
               </div>
 
               {/* Optional Reference ID */}

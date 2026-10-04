@@ -1,11 +1,11 @@
 "use client";
 
-import { Bell, Search, Command } from "lucide-react";
+import { Bell, Search, Command, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useApiResource } from "@/lib/useApi";
-import { useStudentProfile } from "@/lib/studentState";
+import { STUDENT_PROFILE_KEY, useStudentProfile } from "@/lib/studentState";
 import { Notification } from "@/lib/types";
 
 interface StudentHeaderProps {
@@ -17,6 +17,7 @@ export function StudentHeader({ title, subtitle }: StudentHeaderProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
   const [student] = useStudentProfile();
   const { data: notifications } = useApiResource<Notification[]>("notifications", {}, { fallback: [] });
   const unreadCount = (notifications ?? []).filter((item) => !item.read).length;
@@ -31,6 +32,19 @@ export function StudentHeader({ title, subtitle }: StudentHeaderProps) {
     event.preventDefault();
     const value = query.trim();
     if (value) router.push(`/companies?search=${encodeURIComponent(value)}`);
+  }
+  async function signOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // Clear the local profile and return to sign-in even if the network fails.
+    } finally {
+      localStorage.removeItem(STUDENT_PROFILE_KEY);
+      router.replace("/student/login");
+      router.refresh();
+    }
   }
   return (
     <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200/70 px-6 py-3.5">
@@ -64,9 +78,14 @@ export function StudentHeader({ title, subtitle }: StudentHeaderProps) {
             {unreadCount > 0 && <span className="absolute -right-1 -top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[9px] font-bold text-white ring-2 ring-white">{unreadCount > 9 ? "9+" : unreadCount}</span>}
           </Link>
 
-          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow-xs">
+          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow-xs" title={`${student.name} · ${student.rollNumber}`}>
             {student.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}
           </div>
+          <button type="button" onClick={() => void signOut()} disabled={signingOut}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+            aria-label="Sign out of student account" title="Sign out">
+            <LogOut className="h-4 w-4" /><span className="hidden sm:inline">{signingOut ? "Signing out…" : "Sign out"}</span>
+          </button>
         </div>
       </div>
     </header>

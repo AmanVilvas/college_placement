@@ -328,7 +328,7 @@ export default function DriveDetailPage() {
         isOpen={showConfirmDialog}
         onClose={() => setShowConfirmDialog(false)}
         onConfirm={handleConfirm}
-        initialData={{ classYear: "", section: "", degree: "", specialization: "", resumeFileName: "", applicationReferenceId: "", confirmed: false }}
+        initialData={{ classYear: "", section: "", degree: "", specialization: "", resumeUrl: "", applicationReferenceId: "", confirmed: false }}
       />
     </div>
   );

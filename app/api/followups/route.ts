@@ -45,7 +45,7 @@ export async function GET() {
            and coalesce(nullif(d.eligibility->>'maxBacklogs', '')::integer, 2147483647) >= coalesce(s.backlogs, 0)
          group by s.id, d.id, c.name, a.id
        )
-       select * from candidates where application_id is null or status in ('Not Responded','Shortlisted','Assessment','Interview')
+       select * from candidates where application_id is null or status in ('Applied','Not Responded','Shortlisted','Assessment','Interview')
        order by case status when 'Not Responded' then 0 when 'Shortlisted' then 1 else 2 end, application_deadline asc nulls last, student_name asc
        limit 2000`,
       [profile.institution_id, profile.campus_id],
@@ -59,10 +59,10 @@ export async function POST(request: Request) {
     const profile = await requirePlacementOffice();
     const input = followUpSchema.parse(await request.json());
     const recipients = await developmentDatabaseQuery<{
-      student_id: string; student_name: string; email: string | null; phone: string | null;
+      student_id: string; user_id: string | null; student_name: string; email: string | null; phone: string | null;
       drive_id: string; drive_name: string; company_name: string; application_id: string | null; official_apply_link: string | null;
     }>(
-      `select s.id as student_id, s.full_name as student_name,
+      `select s.id as student_id, s.user_id, s.full_name as student_name,
               coalesce(s.email, p.email) as email, coalesce(s.phone, '') as phone,
               d.id as drive_id, d.role_title as drive_name, c.name as company_name,
               a.id as application_id, d.official_apply_link
@@ -93,6 +93,15 @@ export async function POST(request: Request) {
       [profile.institution_id, profile.campus_id, recipient.drive_id, recipient.student_id, recipient.application_id,
         JSON.stringify(input.channels), JSON.stringify(delivery)],
     );
-    return Response.json({ data: { id: saved[0]?.id, delivery } }, { status: 201 });
+    const followUpId = saved[0]?.id;
+    if (followUpId) {
+      await developmentDatabaseQuery(
+        `insert into public.notifications (institution_id, campus_id, user_id, student_id, title, message, category, metadata)
+         values ($1, $2, $3, $4, $5, $6, 'Placement update', $7::jsonb)`,
+        [profile.institution_id, profile.campus_id, recipient.user_id, recipient.student_id, title, message,
+          JSON.stringify({ companyName: recipient.company_name, driveId: recipient.drive_id, followUpId, channels: input.channels, delivery })],
+      );
+    }
+    return Response.json({ data: { id: followUpId, delivery, inAppNotificationCreated: Boolean(followUpId) } }, { status: 201 });
   } catch (error) { return apiError(error); }
 }

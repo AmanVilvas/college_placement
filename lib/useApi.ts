@@ -26,6 +26,10 @@ export function useApiResource<T = unknown[]>(
   });
   const abortRef = useRef<AbortController | null>(null);
 
+  const requestHeaders = () => typeof window !== "undefined" && window.location.pathname.startsWith("/admin")
+    ? { "x-placement-admin-preview": "1" }
+    : undefined;
+
   const fetchData = useCallback(async () => {
     if (!enabled) return;
     abortRef.current?.abort();
@@ -36,7 +40,7 @@ export function useApiResource<T = unknown[]>(
     try {
       const qs = new URLSearchParams(params).toString();
       const url = `/api/${resource}${qs ? `?${qs}` : ""}`;
-      const res = await fetch(url, { signal: ctrl.signal });
+      const res = await fetch(url, { signal: ctrl.signal, headers: requestHeaders() });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `HTTP ${res.status}`);
@@ -78,7 +82,7 @@ export async function apiMutate<T = unknown>(
   const resourcePath = resource.split("/").map(encodeURIComponent).join("/");
   const res = await fetch(`/api/${resourcePath}`, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(typeof window !== "undefined" && window.location.pathname.startsWith("/admin") ? { "x-placement-admin-preview": "1" } : {}) },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
@@ -94,7 +98,7 @@ export async function importStudents(rows: Record<string, unknown>[]): Promise<{
 }> {
   const res = await fetch("/api/import/students", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(typeof window !== "undefined" && window.location.pathname.startsWith("/admin") ? { "x-placement-admin-preview": "1" } : {}) },
     body: JSON.stringify({ rows }),
   });
   const data = await res.json().catch(() => ({}));

@@ -70,7 +70,11 @@ export async function POST(request: Request) {
             if (profile.role !== "student") { await signOut(); throw new ApiError(401, "Invalid roll number or password."); }
             return Response.json({ ok: true, student });
           } else {
-            // Imported demo accounts use their roll number as the initial password.
+            // Imported roll-number/password accounts are for local testing only.
+            // Real deployments must link every student to a Supabase Auth user.
+            if (process.env.NODE_ENV !== "development") {
+              throw new ApiError(401, "This student account needs to be activated by the placement office before sign-in.");
+            }
             if (input.password !== input.rollNumber) throw new ApiError(401, "Invalid roll number or password.");
             await setDemoSession({
               id: studentRow.student_id,

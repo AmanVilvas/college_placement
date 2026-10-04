@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { StudentImportDialog } from "@/components/admin/StudentImportDialog";
 import { EditStudentDetailsModal, StudentToEdit } from "@/components/admin/EditStudentDetailsModal";
 import { useApiResource } from "@/lib/useApi";
+import Link from "next/link";
 import {
   Search, UserCheck, UserX, Clock, Upload, RefreshCw, AlertCircle,
   AlertTriangle, Pencil, Filter
@@ -36,10 +37,13 @@ interface ApiStudentProfile {
   profiles?: { full_name: string; email: string };
 }
 
+interface ApiStudentApplication { student_id: string; status: string; }
+
 /* Normalise API row → display shape */
-function normalise(s: ApiStudentProfile): StudentToEdit & {
+function normalise(s: ApiStudentProfile, applications: ApiStudentApplication[] = []): StudentToEdit & {
   userId: string;
   placementStatus: "Unplaced" | "Placed" | "In Process";
+  applications: ApiStudentApplication[];
 } {
   const email = s.email || s.profiles?.email || s.profile_data?.email || "";
   const name = s.full_name || s.profiles?.full_name || s.profile_data?.imported_name || "";
@@ -74,7 +78,9 @@ function normalise(s: ApiStudentProfile): StudentToEdit & {
     cgpa: Number.isFinite(parsedCgpa) ? parsedCgpa : 0,
     backlogs: s.backlogs ?? 0,
     graduationYear: s.graduation_year,
-    placementStatus: "Unplaced" as const,
+    placementStatus: applications.some((application) => ["Selected", "Placed"].includes(application.status))
+      ? "Placed" as const : applications.length ? "In Process" as const : "Unplaced" as const,
+    applications,
     hasProblemWithDetails: hasProblem,
     detailProblems: s.profile_data?.detail_problems && s.profile_data.detail_problems.length > 0
       ? s.profile_data.detail_problems
@@ -100,7 +106,12 @@ export default function AdminStudentsDirectoryPage() {
     { fallback: [] }
   );
 
-  const displayStudents = (apiData ?? []).map(normalise);
+  const { data: applicationData } = useApiResource<ApiStudentApplication[]>("applications", {
+    select: "id,student_id,status", limit: "10000",
+  }, { fallback: [] });
+
+  const displayStudents = (apiData ?? []).map((student) => normalise(student,
+    (applicationData ?? []).filter((application) => application.student_id === student.id)));
 
   const problemCount = displayStudents.filter((s) => s.hasProblemWithDetails).length;
 
@@ -383,19 +394,27 @@ export default function AdminStudentsDirectoryPage() {
                         </td>
                         <td className="px-3 py-4">
                           <StatusBadge status={student.placementStatus} />
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            {student.applications.length} applications · {student.applications.filter((application) => application.status === "Confirmed").length} confirmed · {student.applications.filter((application) => application.status === "Placed").length} placed
+                          </p>
                         </td>
                         <td className="px-5 py-4 text-right">
-                          <button
-                            onClick={() => setEditingStudent(student)}
-                            className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                              hasProblem
-                                ? "bg-amber-200 text-amber-900 hover:bg-amber-300 shadow-sm"
-                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                            }`}
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                            {hasProblem ? "Fix Details" : "Edit"}
-                          </button>
+                          <div className="inline-flex items-center gap-2">
+                            <Link href={`/admin/students/${student.id}`} className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors">
+                              View profile
+                            </Link>
+                            <button
+                              onClick={() => setEditingStudent(student)}
+                              className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                                hasProblem
+                                  ? "bg-amber-200 text-amber-900 hover:bg-amber-300 shadow-sm"
+                                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                              }`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              {hasProblem ? "Fix Details" : "Edit"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

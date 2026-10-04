@@ -18,7 +18,7 @@ const applicationConfirmationSchema = z.object({
   specialization: z.string().trim().min(1).max(120),
   collegeEmail: z.string().trim().email().max(254),
   phone: z.string().trim().min(7).max(32),
-  resumeFileName: z.string().trim().min(1).max(255),
+  resumeUrl: z.string().trim().url().max(2048).refine((value) => /^https:\/\/(drive|docs)\.google\.com\//i.test(value), "Resume must be a Google Drive or Docs share link."),
   applicationReferenceId: z.string().trim().max(120).default(""),
   confirmed: z.literal(true),
 });
@@ -170,8 +170,11 @@ export async function GET(request: Request, context: { params: Promise<{ resourc
         `select d.*, jsonb_build_object('name', c.name, 'logo_url', c.logo_url, 'metadata', c.metadata) as companies
          from public.drives d join public.companies c on c.id = d.company_id
          where d.institution_id = $1 and d.campus_id = $2
-         order by d.created_at desc limit $3 offset $4`,
-        [profile.institution_id, profile.campus_id, Number(incoming.get("limit") ?? 100), Number(incoming.get("offset") ?? 0)],
+           and ($3::uuid is null or d.id = $3::uuid)
+           and ($4::uuid is null or d.company_id = $4::uuid)
+         order by d.created_at desc limit $5 offset $6`,
+        [profile.institution_id, profile.campus_id, incoming.get("id")?.slice(3) ?? null,
+          incoming.get("company_id")?.slice(3) ?? null, Number(incoming.get("limit") ?? 100), Number(incoming.get("offset") ?? 0)],
       );
       return Response.json({ data: rows });
     }
@@ -183,8 +186,11 @@ export async function GET(request: Request, context: { params: Promise<{ resourc
          from public.student_profiles s left join public.profiles p on p.id = s.user_id
          where s.institution_id = $1 and s.campus_id = $2
            and (not $3::boolean or s.id::text = $4 or lower(s.roll_number) = lower($5))
-         order by s.full_name asc limit $6 offset $7`,
+           and ($6::text is null or s.id::text = $6)
+           and ($7::text is null or lower(s.roll_number) = lower($7))
+         order by s.full_name asc limit $8 offset $9`,
         [profile.institution_id, profile.campus_id, isStudent, profile.id, profile.roll_number ?? "",
+          incoming.get("id")?.slice(3) ?? null, incoming.get("roll_number")?.slice(3) ?? null,
           Number(incoming.get("limit") ?? 100), Number(incoming.get("offset") ?? 0)],
       );
       return Response.json({ data: rows });

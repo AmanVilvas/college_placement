@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Notification } from "@/lib/types";
 
 const CATEGORY_ICONS: Record<string, { icon: typeof Bell; color: string; bg: string }> = {
+  "Placement update": { icon: Info, color: "text-indigo-600", bg: "bg-indigo-100" },
   "New Drive": { icon: Building2, color: "text-indigo-600", bg: "bg-indigo-100" },
   "Deadline Reminder": { icon: Clock, color: "text-amber-600", bg: "bg-amber-100" },
   "Shortlist": { icon: Star, color: "text-purple-600", bg: "bg-purple-100" },

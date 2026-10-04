@@ -73,14 +73,14 @@ export default function AdminApplicationsPage() {
     setStatusMessage("");
     try {
       await fetch(`/api/applications/${encodeURIComponent(appId)}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: newStatus }),
+        method: "PATCH", headers: { "Content-Type": "application/json", "x-placement-admin-preview": "1" }, body: JSON.stringify({ status: newStatus }),
       }).then(async (response) => {
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || "Could not save application status.");
       });
       refetch();
       if (newStatus === "Shortlisted") {
-        const response = await fetch("/api/notifications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "shortlist", applicationId: appId }) });
+        const response = await fetch("/api/notifications", { method: "POST", headers: { "Content-Type": "application/json", "x-placement-admin-preview": "1" }, body: JSON.stringify({ action: "shortlist", applicationId: appId }) });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || "Status saved, but the student notification could not be sent.");
         const delivery = data.data as { emailSent: number; whatsappSent: number; failures: { channel: string; error: string }[] };
@@ -229,7 +229,7 @@ export default function AdminApplicationsPage() {
                           <p className="text-[10px] text-slate-500 mt-1">
                             {[app.confirmationData?.classYear, app.confirmationData?.degree, app.confirmationData?.specialization].filter(Boolean).join(" · ")}
                           </p>
-                          {app.confirmationData?.resumeFileName && <p className="text-[10px] text-slate-500">Resume: {app.confirmationData.resumeFileName}</p>}
+                          {app.confirmationData?.resumeUrl && <a href={app.confirmationData.resumeUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[10px] font-semibold text-indigo-700 underline">Open resume link</a>}
                         </div>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">

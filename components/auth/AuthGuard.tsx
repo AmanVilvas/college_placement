@@ -8,19 +8,26 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 
 export function AuthGuard({ children, kind }: { kind: "student" | "admin"; children: React.ReactNode }) {
   const router = useRouter();
-  const [authorized, setAuthorized] = useState(kind === "student" || process.env.NODE_ENV === "production");
+  const [authorized, setAuthorized] = useState(kind === "admin" && process.env.NODE_ENV === "production");
 
   useEffect(() => {
-    if (kind !== "admin" || process.env.NODE_ENV === "production") return;
-
     let active = true;
     fetch("/api/auth/me", { cache: "no-store" })
       .then(async (response) => {
-        if (!response.ok) throw new Error("Staff sign-in required");
+        if (!response.ok) throw new Error("Sign-in required");
         return response.json();
       })
       .then(({ profile }) => {
         if (!active) return;
+        if (kind === "student") {
+          if (profile?.role !== "student") {
+            router.replace("/student/login");
+            return;
+          }
+          setAuthorized(true);
+          return;
+        }
+        if (process.env.NODE_ENV === "production") return;
         const databaseAccount = uuidPattern.test(profile?.id ?? "");
         const localPreview = process.env.NODE_ENV === "development" && ["demo-admin", "admin-local"].includes(profile?.id ?? "");
         if ((!databaseAccount && !localPreview) || !adminRoles.has(profile?.role)) {
@@ -30,14 +37,14 @@ export function AuthGuard({ children, kind }: { kind: "student" | "admin"; child
         setAuthorized(true);
       })
       .catch(() => {
-        if (active) router.replace("/admin/login");
+        if (active) router.replace(kind === "student" ? "/student/login" : "/admin/login");
       });
 
     return () => { active = false; };
   }, [kind, router]);
 
   if (!authorized) {
-    return <main className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">Checking placement-office access…</main>;
+    return <main className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">Checking {kind === "student" ? "student" : "placement-office"} access…</main>;
   }
 
   return <>{children}</>;

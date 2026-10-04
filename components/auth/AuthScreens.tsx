@@ -47,7 +47,7 @@ function Login({ admin }: { admin: boolean }) {
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to sign in."); }
     finally { setBusy(false); }
   }
-  return <Card eyebrow={admin ? "PlacementOS · Staff" : "PlacementOS · Student"} title={admin ? "Admin sign in" : "Student sign in"} description={admin ? "Use your placement office account email and password." : "Sign in with your college roll number and password. First-time password is your roll number."}>
+  return <Card eyebrow={admin ? "PlacementOS · Staff" : "PlacementOS · Student"} title={admin ? "Admin sign in" : "Student sign in"} description={admin ? "Use your placement office account email and password." : "Sign in with your college roll number as both ID and password for local demo accounts."}>
     <form onSubmit={submit} className="mt-7 space-y-5">{admin ? <Field label="Email address" name="email" type="email" autoComplete="username" /> : <Field label="Roll number" name="rollNumber" autoComplete="username" />}<Field label="Password" name="password" type="password" autoComplete="current-password" />{error && <p role="alert" className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}<button disabled={busy} className="w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">{busy ? "Signing in…" : "Sign in"}</button></form>
     <p className="mt-6 text-center text-sm text-slate-500">{admin ? <a className="font-medium text-indigo-600" href="/student/login">Student sign in</a> : <a className="font-medium text-indigo-600" href="/admin/login">Admin sign in</a>}</p>
   </Card>;

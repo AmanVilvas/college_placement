@@ -18,7 +18,7 @@ type FilterState = {
   status: string;
 };
 
-const ALL_STATUSES = ["Not Responded", "Shortlisted", "Assessment", "Interview"];
+const ALL_STATUSES = ["Not Responded", "Applied", "Shortlisted", "Assessment", "Interview"];
 
 interface ApiFollowUp {
   student_id: string;
@@ -62,13 +62,13 @@ export default function FollowUpsPage() {
     setPendingFollowUpId(actionId);
     setActionMessage("");
     try {
-      const result = await apiMutate<{ id: string; delivery: { emailSent: number; whatsappSent: number; failures: { channel: string; error: string }[] } }>("POST", "followups", {
+      const result = await apiMutate<{ id: string; inAppNotificationCreated: boolean; delivery: { emailSent: number; whatsappSent: number; failures: { channel: string; error: string }[] } }>("POST", "followups", {
         driveId: candidate.drive_id, studentId: candidate.student_id, channels: { email: true, whatsapp: false },
       });
       const failures = result.delivery.failures.map((failure) => `${failure.channel}: ${failure.error}`).join("; ");
       setActionMessage(failures
-        ? `Follow-up saved. Email sent: ${result.delivery.emailSent}. ${failures}`
-        : `Reminder sent to ${candidate.student_name}.`);
+        ? `In-app reminder ${result.inAppNotificationCreated ? "created" : "not created"}. Email accepted by provider: ${result.delivery.emailSent}. ${failures}`
+        : `In-app reminder created for ${candidate.student_name}. Email accepted by provider: ${result.delivery.emailSent}; WhatsApp sent: ${result.delivery.whatsappSent}.`);
       refetch();
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : "Could not record the follow-up.");
@@ -78,6 +78,7 @@ export default function FollowUpsPage() {
   };
 
   const notResponded = filtered.filter((a) => a.status === "Not Responded").length;
+  const externallyApplied = filtered.filter((a) => a.status === "Applied").length;
   const shortlisted = filtered.filter((a) => a.status === "Shortlisted").length;
   const assessment = filtered.filter((a) => a.status === "Assessment").length;
 
@@ -92,7 +93,7 @@ export default function FollowUpsPage() {
         {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">Could not load follow-up records: {error}</p>}
         {actionMessage && <p role="status" className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">{actionMessage}</p>}
         {/* Metric Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="card-clean p-4 flex items-center justify-between">
             <div>
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
@@ -104,6 +105,15 @@ export default function FollowUpsPage() {
             <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600">
               <UserX className="w-5 h-5" />
             </div>
+          </div>
+
+          <div className="card-clean p-4 flex items-center justify-between">
+            <div>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Applied, not confirmed</span>
+              <p className="text-2xl font-bold text-slate-900 mt-0.5">{externallyApplied}</p>
+              <span className="text-[11px] text-sky-700 font-medium">Verify portal confirmation</span>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600"><Check className="w-5 h-5" /></div>
           </div>
 
           <div className="card-clean p-4 flex items-center justify-between">
@@ -270,11 +280,11 @@ export default function FollowUpsPage() {
                               {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageSquare className="w-3 h-3" />}
                               {isSending ? "Sending…" : "Send reminder"}
                             </button>
-                            {app.application_id && <Link
+                            <Link
                               href={`/admin/students/${app.student_id}`}
                               className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                               title="View Student"
-                            ><Eye className="w-4 h-4" /></Link>}
+                            ><Eye className="w-4 h-4" /></Link>
                           </div>
                         </td>
                       </tr>
