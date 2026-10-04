@@ -339,7 +339,11 @@ create table if not exists public.events (
   title text not null,
   description text,
   event_type text not null default 'Campus event',
+  custom_event_type text,
+  event_mode text not null default 'In person',
+  location text,
   meeting_url text,
+  audience jsonb not null default '{"kind":"campus"}',
   starts_at timestamptz,
   ends_at timestamptz,
   visibility text not null default 'campus',
@@ -347,7 +351,11 @@ create table if not exists public.events (
   created_at timestamptz not null default now()
 );
 alter table public.events add column if not exists event_type text not null default 'Campus event';
+alter table public.events add column if not exists custom_event_type text;
+alter table public.events add column if not exists event_mode text not null default 'In person';
+alter table public.events add column if not exists location text;
 alter table public.events add column if not exists meeting_url text;
+alter table public.events add column if not exists audience jsonb not null default '{"kind":"campus"}';
 
 create table if not exists public.alumni_profiles (
   id uuid primary key default gen_random_uuid(),
