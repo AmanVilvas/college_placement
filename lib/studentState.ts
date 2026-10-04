@@ -3,7 +3,7 @@ import { useApiResource } from "@/lib/useApi";
 import type { Application, Branch, Section, Student, Year } from "@/lib/types";
 
 export const STUDENT_PROFILE_KEY = "placement-helper:student-profile";
-export type EditableStudentProfile = Student & { resumeFileName?: string; graduationYear?: number };
+export type EditableStudentProfile = Student & { resumeFileName?: string | null; resumeSize?: number | null; resumeUpdatedAt?: string | null; graduationYear?: number | null };
 
 const emptyStudentProfile: EditableStudentProfile = {
   id: "",

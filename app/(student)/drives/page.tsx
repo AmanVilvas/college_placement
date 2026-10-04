@@ -1,11 +1,12 @@
 "use client";
 
+import { DataSkeleton } from "@/components/shared/DataSkeleton";
 import { StudentHeader } from "@/components/student/StudentHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
 import { useApiResource } from "@/lib/useApi";
 import { formatDate, formatPackage, getDaysUntilDeadline } from "@/lib/utils";
-import { Calendar, MapPin, Clock, Users, RefreshCw, Loader2 } from "lucide-react";
+import { Calendar, MapPin, Clock, Users, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
 interface ApiDrive {
@@ -64,20 +65,17 @@ export default function DrivesPage() {
           <button
             onClick={refetch}
             disabled={loading}
-            className="p-1.5 text-slate-400 hover:text-indigo-500 transition-colors rounded-lg hover:bg-indigo-50"
+            className="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
             title="Sync with database"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">Could not load drives from the placement database: {error}</p>}
 
         {loading ? (
-          <div className="flex items-center justify-center py-24 text-slate-400">
-            <Loader2 className="w-6 h-6 animate-spin mr-2" />
-            Loading drives…
-          </div>
+          <DataSkeleton label="Loading drives…" variant="list" count={4} />
         ) : allDrives.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-100 flex flex-col items-center justify-center py-24 text-center">
             <Calendar className="w-12 h-12 text-slate-300 mb-4" />
@@ -88,18 +86,18 @@ export default function DrivesPage() {
           allDrives.map((drive) => {
             const daysLeft = getDaysUntilDeadline(drive.application_deadline ?? "");
             const companyName = drive.companies?.name ?? "Unknown";
-            const logoColor = drive.companies?.metadata?.logoColor ?? "#6366f1";
+            const logoColor = drive.companies?.metadata?.logoColor ?? "#b91c1c";
 
             return (
               <Link
                 key={drive.id}
                 href={`/companies/${drive.id}`}
-                className="block bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all p-5 group"
+                className="block bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-red-200 transition-all p-5 group"
               >
                 <div className="flex gap-4">
                   {/* Date column */}
                   <div className="flex-shrink-0 w-14 text-center">
-                    <div className="bg-indigo-600 text-white rounded-xl px-2 py-1.5">
+                    <div className="bg-red-600 text-white rounded-xl px-2 py-1.5">
                       <p className="text-[11px] font-medium opacity-80">
                         {drive.drive_date
                           ? new Date(drive.drive_date).toLocaleString("en", { month: "short" })
@@ -119,14 +117,14 @@ export default function DrivesPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-3">
-                        <CompanyLogo name={companyName} logoColor={logoColor} size="md" />
+                        <CompanyLogo name={companyName} logoColor={logoColor} logoUrl={drive.companies?.logo_url} size="md" />
                         <div>
                           <p className="font-bold text-slate-900">{companyName}</p>
                           <p className="text-sm text-slate-600">{drive.role_title}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-indigo-600">
+                        <p className="font-bold text-red-600">
                           {formatPackage(drive.package_lpa, drive.stipend_monthly)}
                         </p>
                         <StatusBadge status={drive.status} />

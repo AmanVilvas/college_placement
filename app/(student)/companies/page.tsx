@@ -1,5 +1,6 @@
 "use client";
 
+import { DataSkeleton } from "@/components/shared/DataSkeleton";
 import { useState, useMemo } from "react";
 import { StudentHeader } from "@/components/student/StudentHeader";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
@@ -9,7 +10,7 @@ import { useApiResource } from "@/lib/useApi";
 import { apiMutate } from "@/lib/useApi";
 import type { Drive } from "@/lib/types";
 import {
-  Building2, ExternalLink, Search, RefreshCw, Loader2,
+  Building2, ExternalLink, Search, RefreshCw,
   MapPin, DollarSign, GraduationCap, Briefcase, Phone, User,
   ChevronDown, ChevronUp, Sparkles, X, CheckCircle2,
 } from "lucide-react";
@@ -72,7 +73,7 @@ function asDrive(company: ApiCompany, row?: ApiDrive): Drive {
     companyId: company.id,
     companyName: company.name,
     companyLogoUrl: company.logo_url,
-    companyLogoColor: metadata.logoColor ?? "#6366f1",
+    companyLogoColor: metadata.logoColor ?? "#b91c1c",
     role,
     jobType: "Full-time",
     packageLPA: row?.package_lpa == null ? undefined : Number(row.package_lpa),
@@ -101,8 +102,8 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
   if (!value) return null;
   return (
     <div className="flex items-start gap-2.5 py-2.5 border-b border-slate-100 last:border-0">
-      <div className="flex-shrink-0 w-6 h-6 rounded-md bg-indigo-50 flex items-center justify-center mt-0.5">
-        <Icon className="w-3.5 h-3.5 text-indigo-500" />
+      <div className="flex-shrink-0 w-6 h-6 rounded-md bg-red-50 flex items-center justify-center mt-0.5">
+        <Icon className="w-3.5 h-3.5 text-red-500" />
       </div>
       <div className="min-w-0">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
@@ -116,7 +117,7 @@ function CompanyCard({
   company, drive, confirmed, isExpanded, onToggle, onConfirmed,
 }: { company: ApiCompany; drive?: ApiDrive; confirmed: boolean; isExpanded: boolean; onToggle: () => void; onConfirmed: () => void }) {
   const meta = company.metadata ?? {};
-  const logoColor = meta.logoColor ?? "#6366f1";
+  const logoColor = meta.logoColor ?? "#b91c1c";
   const [showConfirm, setShowConfirm] = useState(false);
   const formDrive = asDrive(company, drive);
   const hasDetails = !!(meta.position || meta.qualification || meta.stipend ||
@@ -130,7 +131,7 @@ function CompanyCard({
     >
       <div className="p-5">
         <div className="flex items-start gap-3 mb-3">
-          <CompanyLogo name={company.name} logoColor={logoColor} size="lg" />
+          <CompanyLogo name={company.name} logoColor={logoColor} logoUrl={company.logo_url} size="lg" />
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-slate-900 text-sm leading-tight">{company.name}</h3>
             {company.industry && (
@@ -153,16 +154,16 @@ function CompanyCard({
             </span>
           )}
           {meta.qualification && (
-            <span className="inline-flex items-center gap-1 bg-violet-50 text-violet-700 text-[10px] font-semibold px-2 py-1 rounded-full border border-violet-100">
+            <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 text-[10px] font-semibold px-2 py-1 rounded-full border border-red-100">
               <GraduationCap className="w-2.5 h-2.5" />{meta.qualification}
             </span>
           )}
         </div>
 
         {meta.position && (
-          <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3 mb-3">
-            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Position(s)</p>
-            <p className="text-xs text-indigo-900 font-medium whitespace-pre-line leading-relaxed">{meta.position}</p>
+          <div className="bg-red-50/60 border border-red-100 rounded-xl p-3 mb-3">
+            <p className="text-[9px] font-bold text-red-400 uppercase tracking-widest mb-1">Position(s)</p>
+            <p className="text-xs text-red-900 font-medium whitespace-pre-line leading-relaxed">{meta.position}</p>
           </div>
         )}
 
@@ -186,7 +187,7 @@ function CompanyCard({
           </span>
         ) : (
           <button onClick={() => setShowConfirm(true)}
-            className="min-h-10 rounded-xl bg-indigo-600 px-2 py-2 text-xs font-semibold text-white hover:bg-indigo-700 flex items-center justify-center gap-1.5 transition-colors">
+            className="min-h-10 rounded-xl bg-red-600 px-2 py-2 text-xs font-semibold text-white hover:bg-red-700 flex items-center justify-center gap-1.5 transition-colors">
             <CheckCircle2 className="w-3.5 h-3.5" /> Confirm Application
           </button>
         )}
@@ -195,7 +196,7 @@ function CompanyCard({
       {(hasDetails || extraKeys.length > 0) && (
         <div className="border-t border-slate-100">
           <button onClick={onToggle}
-            className="w-full flex items-center justify-between px-5 py-3 text-xs font-semibold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/40 transition-colors">
+            className="w-full flex items-center justify-between px-5 py-3 text-xs font-semibold text-slate-600 hover:text-red-600 hover:bg-red-50/40 transition-colors">
             <span>{isExpanded ? "Hide details" : "View full details"}</span>
             {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
@@ -288,11 +289,11 @@ export default function StudentCompaniesPage() {
 
         {/* Hero Banner */}
         <section className="relative overflow-hidden rounded-2xl bg-slate-950 px-6 py-8 text-white">
-          <div className="absolute -right-8 -top-20 h-64 w-64 rounded-full bg-indigo-500/20 blur-3xl" />
-          <div className="absolute -left-8 -bottom-16 h-48 w-48 rounded-full bg-violet-500/15 blur-3xl" />
+          <div className="absolute -right-8 -top-20 h-64 w-64 rounded-full bg-red-500/20 blur-3xl" />
+          <div className="absolute -left-8 -bottom-16 h-48 w-48 rounded-full bg-red-500/15 blur-3xl" />
           <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             <div>
-              <div className="flex items-center gap-2 text-xs font-semibold text-indigo-300 mb-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-red-300 mb-3">
                 <Sparkles className="w-4 h-4" /> CAMPUS PLACEMENT 2026
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
@@ -307,7 +308,7 @@ export default function StudentCompaniesPage() {
               <span className="text-xs text-emerald-400 font-semibold">Live Database</span>
               <button onClick={refetch} disabled={loading}
                 className="ml-2 p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -320,10 +321,10 @@ export default function StudentCompaniesPage() {
               <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
               <input type="search" placeholder="Search companies, positions, locations…"
                 value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:bg-white focus:border-indigo-300 transition-all" />
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:bg-white focus:border-red-300 transition-all" />
             </div>
             <select value={selectedIndustry} onChange={(e) => setSelectedIndustry(e.target.value)}
-              className="sm:w-56 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-300 transition-all">
+              className="sm:w-56 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-300 transition-all">
               {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
             </select>
             {filtersActive && (
@@ -353,9 +354,7 @@ export default function StudentCompaniesPage() {
 
         {/* Grid */}
         {loading ? (
-          <div className="flex items-center justify-center py-24 text-slate-400">
-            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading companies…
-          </div>
+          <DataSkeleton label="Loading companies…" variant="cards" count={6} />
         ) : companies.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-20 text-center">
             <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-3" />

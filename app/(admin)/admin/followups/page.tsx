@@ -91,7 +91,7 @@ export default function FollowUpsPage() {
 
       <div className="p-6 space-y-6">
         {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">Could not load follow-up records: {error}</p>}
-        {actionMessage && <p role="status" className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">{actionMessage}</p>}
+        {actionMessage && <p role="status" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">{actionMessage}</p>}
         {/* Metric Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="card-clean p-4 flex items-center justify-between">
@@ -135,9 +135,9 @@ export default function FollowUpsPage() {
                 Assessment Stage
               </span>
               <p className="text-2xl font-bold text-slate-900 mt-0.5">{assessment}</p>
-              <span className="text-[11px] text-indigo-600 font-medium">Online Tests Scheduled</span>
+              <span className="text-[11px] text-red-600 font-medium">Online Tests Scheduled</span>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+            <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600">
               <Clock className="w-5 h-5" />
             </div>
           </div>

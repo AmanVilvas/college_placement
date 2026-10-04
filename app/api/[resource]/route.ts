@@ -270,6 +270,14 @@ export async function POST(request: Request, context: { params: Promise<{ resour
     let record = input;
     const useDirectDatabase = process.env.NODE_ENV === "production" || isLocalDevelopmentRequest(request);
 
+    if (table === "companies" && input.logo_url != null) {
+      if (typeof input.logo_url !== "string"
+        || input.logo_url.length > 250_000
+        || !/^data:image\/webp;base64,[A-Za-z0-9+/]+={0,2}$/.test(input.logo_url)) {
+        throw new ApiError(400, "Company logos must be uploaded as an image and resized to WebP before saving.");
+      }
+    }
+
     if (table === "applications") {
       const { profile, user } = await currentProfile();
       const localStudentPreview = isLocalDevelopmentRequest(request);
@@ -469,9 +477,9 @@ export async function POST(request: Request, context: { params: Promise<{ resour
         const rows = await developmentDatabaseQuery<{
           id: string; name: string; website?: string | null; description?: string | null; metadata?: Record<string, unknown> | null;
         }>(
-          `insert into public.companies (institution_id, campus_id, name, website, industry, description, metadata)
-           values ($1, $2, $3, $4, $5, $6, $7::jsonb) returning *`,
-          [profile.institution_id, profile.campus_id, name, nullableText(input.website), nullableText(input.industry), nullableText(input.description), metadata],
+          `insert into public.companies (institution_id, campus_id, name, website, industry, description, logo_url, metadata)
+           values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb) returning *`,
+          [profile.institution_id, profile.campus_id, name, nullableText(input.website), nullableText(input.industry), nullableText(input.description), nullableText(input.logo_url), metadata],
         );
         return Response.json({ data: rows }, { status: 201 });
       }

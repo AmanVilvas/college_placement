@@ -18,12 +18,12 @@ interface ApiApplication {
   confirmation_data?: Application["confirmationData"];
   applied_at?: string;
   updated_at?: string;
-  drives?: { role_title?: string; company_id?: string; companies?: { name?: string; metadata?: { logoColor?: string } } };
+  drives?: { role_title?: string; company_id?: string; companies?: { name?: string; logo_url?: string; metadata?: { logoColor?: string } } };
 }
 
 export default function MyApplicationsPage() {
   const { data: rows, error } = useApiResource<ApiApplication[]>("applications", {
-    select: "id,student_id,drive_id,status,confirmation_data,applied_at,updated_at,drives(role_title,company_id,companies(name,metadata))",
+    select: "id,student_id,drive_id,status,confirmation_data,applied_at,updated_at,drives(role_title,company_id,companies(name,logo_url,metadata))",
     order: "applied_at.desc",
     limit: "500",
   }, { fallback: [] });
@@ -41,6 +41,7 @@ export default function MyApplicationsPage() {
       driveName: liveDrive?.role_title || "Placement drive",
       companyId: liveDrive?.company_id || "",
       companyName: liveDrive?.companies?.name || "Company",
+      companyLogoUrl: liveDrive?.companies?.logo_url,
       status: row.status as Application["status"],
       appliedAt: row.applied_at,
       confirmedAt: confirmation?.confirmedAt || row.updated_at,
@@ -74,7 +75,7 @@ export default function MyApplicationsPage() {
             </p>
             <Link
               href="/companies"
-              className="bg-indigo-600 text-white text-sm font-semibold px-6 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors"
+              className="bg-red-600 text-white text-sm font-semibold px-6 py-2.5 rounded-xl hover:bg-red-700 transition-colors"
             >
               Browse Companies
             </Link>
@@ -95,7 +96,8 @@ export default function MyApplicationsPage() {
                         <div className="flex items-start gap-4 mb-5">
                           <CompanyLogo
                             name={app.companyName}
-                            logoColor="#6366f1"
+                            logoColor="#b91c1c"
+                            logoUrl={app.companyLogoUrl}
                             size="md"
                           />
                           <div className="flex-1">
@@ -126,7 +128,7 @@ export default function MyApplicationsPage() {
                                   <div className="flex flex-col items-center">
                                     <div className={cn(
                                       "w-6 h-6 rounded-full flex items-center justify-center",
-                                      isDone ? "bg-emerald-500" : isCurrent ? "bg-indigo-600" : "bg-slate-200"
+                                      isDone ? "bg-emerald-500" : isCurrent ? "bg-red-600" : "bg-slate-200"
                                     )}>
                                       {isDone ? (
                                         <CheckCircle className="w-4 h-4 text-white" />
@@ -138,7 +140,7 @@ export default function MyApplicationsPage() {
                                     </div>
                                     <span className={cn(
                                       "text-[9px] font-medium mt-1 text-center w-14",
-                                      isDone ? "text-emerald-600" : isCurrent ? "text-indigo-600 font-bold" : "text-slate-400"
+                                      isDone ? "text-emerald-600" : isCurrent ? "text-red-600 font-bold" : "text-slate-400"
                                     )}>
                                       {step}
                                     </span>
@@ -174,6 +176,7 @@ export default function MyApplicationsPage() {
                         <CompanyLogo
                           name={app.companyName}
                           logoColor="#f59e0b"
+                          logoUrl={app.companyLogoUrl}
                           size="sm"
                         />
                         <div className="flex-1 min-w-0">

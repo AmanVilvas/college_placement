@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import {
-  X, Building2, Plus, Globe, Trash2,
+  X, Building2, Plus, Globe, Trash2, ImagePlus,
   MapPin, User, DollarSign, GraduationCap, Briefcase, Phone,
   CheckCircle2, Loader2,
 } from "lucide-react";
+import { CompanyLogo } from "@/components/shared/CompanyLogo";
 
 interface CustomField {
   key: string;
@@ -21,7 +22,7 @@ interface AddCompanyDialogProps {
 
 const PRESET_COLORS = [
   "#00a4ef", "#ff9900", "#86bc25", "#007cc3", "#002d72",
-  "#4285f4", "#9d2449", "#6366f1", "#10b981", "#ec4899",
+  "#4285f4", "#9d2449", "#b91c1c", "#10b981", "#ec4899",
   "#f97316", "#8b5cf6", "#14b8a6", "#ef4444", "#0ea5e9",
 ];
 
@@ -34,11 +35,11 @@ const INDUSTRIES = [
 ];
 
 const inputCls =
-  "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all bg-white";
+  "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-400 transition-all bg-white";
 
 function SectionHeader({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
-    <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 uppercase tracking-widest pb-1">
+    <div className="flex items-center gap-2 text-xs font-bold text-red-600 uppercase tracking-widest pb-1">
       <Icon className="w-3.5 h-3.5" />
       {label}
     </div>
@@ -50,7 +51,10 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
   const [website, setWebsite] = useState("");
   const [industry, setIndustry] = useState("Technology / SaaS");
   const [description, setDescription] = useState("");
-  const [color, setColor] = useState("#6366f1");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [processingLogo, setProcessingLogo] = useState(false);
+  const [color, setColor] = useState("#b91c1c");
   const [position, setPosition] = useState("");
   const [qualification, setQualification] = useState("");
   const [stipend, setStipend] = useState("");
@@ -78,8 +82,52 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
 
   function resetForm() {
     setName(""); setWebsite(""); setIndustry("Technology / SaaS"); setDescription("");
-    setColor("#6366f1"); setPosition(""); setQualification(""); setStipend("");
+    setLogoUrl(""); setLogoError(null); setProcessingLogo(false);
+    setColor("#b91c1c"); setPosition(""); setQualification(""); setStipend("");
     setCtc(""); setLocation(""); setSpoc(""); setTrainerDetails(""); setCustomFields([]);
+  }
+
+  async function handleLogoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setLogoError("Choose a JPG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoError("The image must be under 5 MB.");
+      return;
+    }
+
+    setProcessingLogo(true);
+    setLogoError(null);
+    try {
+      const image = await createImageBitmap(file);
+      const scale = Math.min(320 / image.width, 320 / image.height, 1);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Could not process this image.");
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      image.close();
+
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.82));
+      if (!blob) throw new Error("Could not process this image.");
+      if (blob.type !== "image/webp") throw new Error("This browser could not resize the image. Try a different browser.");
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("Could not read this image."));
+        reader.onerror = () => reject(new Error("Could not read this image."));
+        reader.readAsDataURL(blob);
+      });
+      setLogoUrl(dataUrl);
+    } catch (error) {
+      setLogoError(error instanceof Error ? error.message : "Could not process this image.");
+    } finally {
+      setProcessingLogo(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -95,6 +143,7 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
 
     const payload: Record<string, unknown> = {
       name: name.trim(),
+      logo_url: logoUrl || null,
       website: website.trim()
         ? (website.startsWith("http") ? website.trim() : `https://${website.trim()}`)
         : null,
@@ -130,7 +179,7 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
 
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50/60 to-white flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-red-50/60 to-white flex-shrink-0">
           <div className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm transition-colors"
@@ -185,6 +234,21 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
                     {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
                   </select>
                 </div>
+              </div>
+              <div>
+                <span className="mb-1.5 block text-xs font-semibold text-slate-700">Company logo <span className="font-normal text-slate-400">(optional)</span></span>
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                  <CompanyLogo name={name || "Company"} logoColor={color} logoUrl={logoUrl || undefined} size="md" />
+                  <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-red-300 hover:text-red-700">
+                    <ImagePlus className="h-4 w-4" />
+                    {processingLogo ? "Preparing image…" : logoUrl ? "Replace image" : "Upload image"}
+                    <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void handleLogoChange(event)} disabled={processingLogo || isSubmitting} className="sr-only" />
+                  </label>
+                  {logoUrl && <button type="button" onClick={() => { setLogoUrl(""); setLogoError(null); }} className="text-xs font-medium text-slate-500 hover:text-red-700">Remove image</button>}
+                  <span className="text-[11px] text-slate-500">JPG, PNG, or WebP · up to 5 MB</span>
+                </div>
+                {logoError && <p role="alert" className="mt-1.5 text-xs text-red-700">{logoError}</p>}
+                <p className="mt-1 text-[11px] leading-5 text-slate-500">Images are resized before saving. Without a logo, the company name initials are shown.</p>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">Brand Color</label>
@@ -289,7 +353,7 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
                   Additional Fields
                 </div>
                 <button type="button" onClick={addCustomField}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100">
+                  className="flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors border border-red-100">
                   <Plus className="w-3.5 h-3.5" /> Add More Field
                 </button>
               </div>
@@ -303,10 +367,10 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
                     <div key={cf.id} className="flex items-center gap-2">
                       <input type="text" placeholder="Field name (e.g. Bond Period)" value={cf.key}
                         onChange={(e) => updateCustomField(cf.id, "key", e.target.value)}
-                        className="flex-[2] border border-slate-200 rounded-xl px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white" />
+                        className="flex-[2] border border-slate-200 rounded-xl px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 bg-white" />
                       <input type="text" placeholder="Value" value={cf.value}
                         onChange={(e) => updateCustomField(cf.id, "value", e.target.value)}
-                        className="flex-[3] border border-slate-200 rounded-xl px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white" />
+                        className="flex-[3] border border-slate-200 rounded-xl px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 bg-white" />
                       <button type="button" onClick={() => removeCustomField(cf.id)}
                         className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors flex-shrink-0">
                         <Trash2 className="w-3.5 h-3.5" />
@@ -325,7 +389,7 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
               Cancel
             </button>
             <button type="submit" disabled={isSubmitting || !name.trim()}
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm shadow-indigo-200/60 transition-colors flex items-center gap-2">
+              className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm shadow-red-200/60 transition-colors flex items-center gap-2">
               {isSubmitting
                 ? (<><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>)
                 : (<><CheckCircle2 className="w-4 h-4" /> Add Company</>)}

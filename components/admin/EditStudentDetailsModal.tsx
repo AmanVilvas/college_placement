@@ -178,7 +178,7 @@ function EditStudentModalInner({
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="e.g. Arjun Sharma"
                 required
-                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-400"
               />
             </div>
 
@@ -192,7 +192,7 @@ function EditStudentModalInner({
                 onChange={(e) => setRollNumber(e.target.value)}
                 placeholder="e.g. 21MBA01"
                 required
-                className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-400"
               />
             </div>
 
@@ -205,7 +205,7 @@ function EditStudentModalInner({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="e.g. arjun@college.edu"
-                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-400"
               />
             </div>
 
@@ -218,7 +218,7 @@ function EditStudentModalInner({
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="e.g. 9876543210"
-                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-400"
               />
             </div>
 
@@ -231,7 +231,7 @@ function EditStudentModalInner({
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
                 placeholder="e.g. MBA, CSE, Marketing"
-                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-400"
               />
             </div>
 
@@ -244,7 +244,7 @@ function EditStudentModalInner({
                 value={section}
                 onChange={(e) => setSection(e.target.value)}
                 placeholder="e.g. A"
-                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-400"
               />
             </div>
 
@@ -258,7 +258,7 @@ function EditStudentModalInner({
                 value={cgpa}
                 onChange={(e) => setCgpa(e.target.value)}
                 placeholder="0–100 or 0–10"
-                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-400"
               />
             </div>
 
@@ -272,7 +272,7 @@ function EditStudentModalInner({
                 onChange={(e) => setBacklogs(e.target.value)}
                 min="0"
                 placeholder="0"
-                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-400"
               />
             </div>
 
@@ -285,7 +285,7 @@ function EditStudentModalInner({
                 value={graduationYear}
                 onChange={(e) => setGraduationYear(e.target.value)}
                 placeholder="e.g. 2025"
-                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-400"
               />
             </div>
           </div>
@@ -297,7 +297,7 @@ function EditStudentModalInner({
                 type="checkbox"
                 checked={markAsVerified}
                 onChange={(e) => setMarkAsVerified(e.target.checked)}
-                className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                className="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500"
               />
               <div className="text-xs">
                 <span className="font-semibold text-slate-800">
@@ -322,7 +322,7 @@ function EditStudentModalInner({
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl transition-colors shadow-sm disabled:opacity-50"
+              className="flex items-center gap-1.5 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl transition-colors shadow-sm disabled:opacity-50"
             >
               {saving ? (
                 <>

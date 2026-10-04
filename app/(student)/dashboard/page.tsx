@@ -1,13 +1,13 @@
 "use client";
 
+import { DataSkeleton } from "@/components/shared/DataSkeleton";
 import { StudentHeader } from "@/components/student/StudentHeader";
-import { StatsCard } from "@/components/shared/StatsCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
 import { useApiResource } from "@/lib/useApi";
 import {
-  Building2, FileText, Star, Video, Award,
-  ArrowRight, Clock, Sparkles, CheckCircle2, RefreshCw,
+  ArrowRight, ArrowUpRight, Award, BriefcaseBusiness, CalendarDays,
+  FileCheck2, RefreshCw, UserRound, Video,
 } from "lucide-react";
 import { useStudentApplications, useStudentProfile } from "@/lib/studentState";
 import { formatPackage, getDaysUntilDeadline } from "@/lib/utils";
@@ -32,231 +32,174 @@ interface ApiDrive {
 }
 
 export default function StudentDashboardPage() {
-  const { applications: myApplications } = useStudentApplications();
+  const { applications } = useStudentApplications();
   const [student] = useStudentProfile();
-
-  // Fetch live drives from API; fall back gracefully
   const { data: apiDrives, loading: drivesLoading, refetch } = useApiResource<ApiDrive[]>(
     "drives",
     {
-      select: "id,company_id,role_title,package_lpa,stipend_monthly,application_deadline,drive_date,status,openings,eligibility,companies(name,metadata)",
+      select: "id,company_id,role_title,package_lpa,stipend_monthly,application_deadline,drive_date,status,openings,eligibility,companies(name,logo_url,metadata)",
       status: "eq.Open",
       limit: "100",
     },
     { fallback: [] }
   );
 
-  const upcomingDrives = (apiDrives ?? [])
-    .filter((d) => d.status === "Open" || d.status === "Closing Soon")
+  const activeDrives = (apiDrives ?? [])
+    .filter((drive) => drive.status === "Open" || drive.status === "Closing Soon")
     .sort((a, b) => {
-      const aD = a.application_deadline ? new Date(a.application_deadline).getTime() : 0;
-      const bD = b.application_deadline ? new Date(b.application_deadline).getTime() : 0;
-      return aD - bD;
-    })
-    .slice(0, 4);
+      const aDeadline = a.application_deadline ? new Date(a.application_deadline).getTime() : Number.MAX_SAFE_INTEGER;
+      const bDeadline = b.application_deadline ? new Date(b.application_deadline).getTime() : Number.MAX_SAFE_INTEGER;
+      return aDeadline - bDeadline;
+    });
+  const shortlisted = applications.filter((application) => application.status === "Shortlisted").length;
+  const interviews = applications.filter((application) => application.status === "Interview").length;
+  const offers = applications.filter((application) => application.status === "Selected" || application.status === "Placed").length;
+  const firstName = student.name.trim().split(/\s+/)[0] || "there";
 
-  const totalCompanies = new Set((apiDrives ?? []).map((d) => d.company_id)).size;
-  const totalApplications = myApplications.length;
-  const shortlisted = myApplications.filter((a) => a.status === "Shortlisted").length;
-  const interviews = myApplications.filter((a) => a.status === "Interview").length;
-  const offers = myApplications.filter((a) => a.status === "Selected" || a.status === "Placed").length;
+  const metrics = [
+    { label: "Open drives", value: drivesLoading ? "—" : activeDrives.length, detail: "Accepting applications", Icon: BriefcaseBusiness },
+    { label: "Applications", value: applications.length, detail: "In your pipeline", Icon: FileCheck2 },
+    { label: "Shortlisted", value: shortlisted, detail: "Moved to next round", Icon: Award },
+    { label: "Interviews", value: interviews, detail: "In progress", Icon: Video },
+    { label: "Offers", value: offers, detail: "Received", Icon: UserRound },
+  ];
 
   return (
     <div>
-      <StudentHeader
-        title="Student Workspace"
-        subtitle={`Placement Season 2026 · Welcome back, ${student.name.split(" ")[0]}`}
-      />
+      <StudentHeader title="Dashboard" subtitle={`Welcome back, ${firstName} · Placement season 2026`} />
 
-      <div className="p-6 max-w-6xl mx-auto space-y-6">
-        {/* Welcome Card */}
-        <div className="card-clean p-6 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 pulse-dot" />
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Recruitment Season Active
-              </span>
+      <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-7">
+        <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-red-700">Your placement workspace</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-[1.75rem]">Good to see you, {firstName}.</h2>
+            <p className="mt-1.5 text-sm text-slate-500">Keep your applications moving and find the next opportunity.</p>
+          </div>
+          <Link href="/drives" className="inline-flex min-h-10 items-center justify-center gap-2 self-start rounded-lg bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 sm:self-auto">
+            Explore drives <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </section>
+
+        <section aria-label="Placement summary" className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-200/80 sm:grid-cols-3 lg:grid-cols-5">
+          {metrics.map(({ label, value, detail, Icon }, index) => (
+            <div key={label} className={`flex min-h-[108px] flex-col justify-between bg-white p-4 sm:p-5 ${index === 4 ? "col-span-2 sm:col-span-1" : ""}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-slate-500">{label}</span>
+                <Icon className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={1.8} aria-hidden="true" />
+              </div>
+              <div className="mt-3 flex items-end justify-between gap-2">
+                <span className="text-[1.65rem] font-semibold leading-none tracking-[-0.04em] text-slate-950">{value}</span>
+                <span className="hidden text-[10px] leading-4 text-slate-400 xl:inline">{detail}</span>
+              </div>
             </div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900">
-              {drivesLoading
-                ? "Loading available drives…"
-                : `${upcomingDrives.length} drive${upcomingDrives.length !== 1 ? "s" : ""} currently accepting applications`}
-            </h2>
-            <p className="text-xs text-slate-500 max-w-xl">
-              Apply through the official links and confirm your participation here to stay eligible.
-            </p>
+          ))}
+        </section>
+
+        <section aria-labelledby="activity-heading">
+          <div className="mb-3 flex items-end justify-between gap-4">
+            <div>
+              <h3 id="activity-heading" className="text-base font-semibold tracking-tight text-slate-950">My placement activity</h3>
+              <p className="mt-1 text-xs text-slate-500">Open opportunities and your application progress.</p>
+            </div>
+            <Link href="/applications" className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-slate-600 transition hover:text-red-700">All applications <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>
           </div>
 
-          <Link
-            href="/drives"
-            className="self-start sm:self-auto bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-xs flex items-center gap-1.5"
-          >
-            Explore Opportunities <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatsCard
-            title="Available Drives"
-            value={drivesLoading ? "—" : totalCompanies}
-            subtitle="Campus partners"
-            icon={Building2}
-          />
-          <StatsCard
-            title="Applied"
-            value={totalApplications}
-            subtitle="Confirmed apps"
-            icon={FileText}
-          />
-          <StatsCard
-            title="Shortlists"
-            value={shortlisted}
-            subtitle="Rounds cleared"
-            icon={Star}
-          />
-          <StatsCard
-            title="Interviews"
-            value={interviews}
-            subtitle="Scheduled"
-            icon={Video}
-          />
-          <StatsCard
-            title="Offers"
-            value={offers}
-            subtitle="Received"
-            icon={Award}
-          />
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Active Drives - LIVE from API */}
-          <div className="card-clean p-5 bg-white space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-sm text-slate-900">Active Placement Drives</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={refetch}
-                  disabled={drivesLoading}
-                  className="p-1 text-slate-400 hover:text-indigo-500 transition-colors rounded"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${drivesLoading ? "animate-spin" : ""}`} />
+          <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+            <section aria-labelledby="drives-heading" className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white">
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4 sm:px-5">
+                <div>
+                  <h4 id="drives-heading" className="text-sm font-semibold text-slate-900">Open drives</h4>
+                  <p className="mt-0.5 text-xs text-slate-500">Companies currently recruiting on campus</p>
+                </div>
+                <button type="button" onClick={refetch} disabled={drivesLoading} aria-label="Refresh open drives" className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40">
+                  <RefreshCw className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
                 </button>
-                <Link href="/drives" className="text-xs font-semibold text-indigo-600 hover:underline">
-                  View all →
-                </Link>
               </div>
-            </div>
 
-            {drivesLoading ? (
-              <div className="text-center py-8 text-slate-400">
-                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
-                <p className="text-sm">Loading drives…</p>
+              {drivesLoading ? (
+                <DataSkeleton label="Loading open drives" variant="rows" count={3} />
+              ) : activeDrives.length === 0 ? (
+                <div className="px-5 py-12 text-center">
+                  <p className="text-sm font-medium text-slate-700">No open drives right now</p>
+                  <p className="mt-1 text-xs text-slate-500">New opportunities will appear here when they are available.</p>
+                </div>
+              ) : (
+                <div>
+                  <div className="hidden grid-cols-[minmax(0,1fr)_minmax(120px,0.55fr)_minmax(90px,0.4fr)] gap-4 border-b border-slate-100 bg-slate-50/70 px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400 sm:grid">
+                    <span>Company &amp; role</span><span>Package</span><span>Deadline</span>
+                  </div>
+                  {activeDrives.slice(0, 5).map((drive) => {
+                    const daysLeft = getDaysUntilDeadline(drive.application_deadline ?? "");
+                    return (
+                      <Link key={drive.id} href={`/companies/${drive.id}`} className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-100 px-4 py-3.5 transition-colors last:border-b-0 hover:bg-slate-50/70 sm:grid-cols-[minmax(0,1fr)_minmax(120px,0.55fr)_minmax(90px,0.4fr)] sm:gap-4 sm:px-5">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <CompanyLogo name={drive.companies?.name ?? "Company"} logoColor={drive.companies?.metadata?.logoColor ?? "#b91c1c"} logoUrl={drive.companies?.logo_url} size="sm" />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-slate-800 group-hover:text-red-700">{drive.companies?.name ?? "Unknown company"}</p>
+                            <p className="mt-0.5 truncate text-xs text-slate-500">{drive.role_title}</p>
+                          </div>
+                        </div>
+                        <span className="text-right text-xs font-medium text-slate-700 sm:text-left">{formatPackage(drive.package_lpa, drive.stipend_monthly)}</span>
+                        <span className={`hidden text-xs sm:block ${daysLeft <= 3 ? "font-medium text-red-700" : "text-slate-500"}`}>{daysLeft > 0 ? `${daysLeft} days left` : "Closing"}</span>
+                        <ArrowUpRight className="h-4 w-4 text-slate-300 transition group-hover:text-red-700 sm:hidden" aria-hidden="true" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+              <Link href="/drives" className="flex items-center justify-center gap-1.5 border-t border-slate-100 px-4 py-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-red-700">
+                Browse all drives <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            </section>
+
+            <section aria-labelledby="applications-heading" className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white">
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4 sm:px-5">
+                <div>
+                  <h4 id="applications-heading" className="text-sm font-semibold text-slate-900">Recent applications</h4>
+                  <p className="mt-0.5 text-xs text-slate-500">The latest updates to your progress</p>
+                </div>
+                <Link href="/applications" className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="View all applications"><ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link>
               </div>
-            ) : upcomingDrives.length === 0 ? (
-              <div className="text-center py-8 text-slate-400">
-                <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">No active drives right now</p>
-                <p className="text-xs mt-1">Check back later or contact your placement office.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {upcomingDrives.map((drive) => {
-                  const daysLeft = getDaysUntilDeadline(drive.application_deadline ?? "");
-                  return (
-                    <Link
-                      key={drive.id}
-                      href={`/companies/${drive.id}`}
-                      className="p-3 rounded-xl border border-slate-100 hover:border-slate-300/80 bg-slate-50/50 hover:bg-white flex items-center justify-between gap-3 transition-all group"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <CompanyLogo
-                          name={drive.companies?.name ?? "?"}
-                          logoColor={drive.companies?.metadata?.logoColor ?? "#6366f1"}
-                          size="sm"
-                        />
+
+              {applications.length === 0 ? (
+                <div className="px-5 py-12 text-center">
+                  <p className="text-sm font-medium text-slate-700">Your applications will show here</p>
+                  <p className="mt-1 text-xs text-slate-500">Browse an open drive to get started.</p>
+                  <Link href="/drives" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-red-700 hover:text-red-800">Browse drives <ArrowRight className="h-3 w-3" aria-hidden="true" /></Link>
+                </div>
+              ) : (
+                <div>
+                  {applications.slice(0, 5).map((application) => (
+                    <Link key={application.id} href={`/companies/${application.driveId}`} className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 transition-colors last:border-0 hover:bg-slate-50/70 sm:px-5">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <CompanyLogo name={application.companyName} logoColor="#b91c1c" size="sm" />
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
-                            {drive.companies?.name ?? "Unknown Company"}
-                          </p>
-                          <p className="text-[11px] text-slate-500 truncate">{drive.role_title}</p>
+                          <p className="truncate text-sm font-medium text-slate-800">{application.companyName}</p>
+                          <p className="mt-0.5 truncate text-xs text-slate-500">{application.driveName}</p>
                         </div>
                       </div>
-
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-xs font-bold text-slate-900">
-                          {formatPackage(drive.package_lpa, drive.stipend_monthly)}
-                        </p>
-                        <p className={`text-[10px] font-semibold ${daysLeft <= 3 ? "text-rose-600" : "text-slate-400"}`}>
-                          {daysLeft > 0 ? `${daysLeft}d left` : "Closing"}
-                        </p>
-                      </div>
+                      <StatusBadge status={application.status} size="sm" />
                     </Link>
-                  );
-                })}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
+        </section>
 
-          {/* My Applications Status */}
-          <div className="card-clean p-5 bg-white space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-sm text-slate-900">My Registered Applications</h3>
-              <Link href="/applications" className="text-xs font-semibold text-indigo-600 hover:underline">
-                Track status →
-              </Link>
-            </div>
-
-            {myApplications.length === 0 ? (
-              <div className="text-center py-8 text-slate-400">
-                <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">No applications yet</p>
-                <Link href="/drives" className="text-xs text-indigo-600 font-semibold hover:underline mt-1 block">
-                  Browse open drives →
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {myApplications.slice(0, 5).map((app) => (
-                  <div
-                    key={app.id}
-                    className="p-3 rounded-xl border border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <CompanyLogo name={app.companyName} logoColor="#4f46e5" size="sm" />
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-900 truncate">{app.companyName}</p>
-                        <p className="text-[11px] text-slate-500 truncate">{app.driveName}</p>
-                      </div>
-                    </div>
-
-                    <StatusBadge status={app.status} size="sm" />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Quick tools */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <section aria-label="Quick links" className="grid gap-3 sm:grid-cols-3">
           {[
-            { label: "My Profile", href: "/profile", icon: Sparkles, color: "from-indigo-50 to-indigo-100/50" },
-            { label: "Applications", href: "/applications", icon: CheckCircle2, color: "from-emerald-50 to-emerald-100/50" },
-            { label: "All Drives", href: "/drives", icon: Building2, color: "from-violet-50 to-violet-100/50" },
-            { label: "Resources", href: "/workspace", icon: Award, color: "from-amber-50 to-amber-100/50" },
-          ].map((tool) => (
-            <Link
-              key={tool.href}
-              href={tool.href}
-              className={`card-clean p-4 bg-gradient-to-br ${tool.color} flex items-center gap-3 group hover:scale-[1.02] transition-transform`}
-            >
-              <tool.icon className="w-5 h-5 text-slate-600 group-hover:text-indigo-600 transition-colors" />
-              <span className="text-xs font-semibold text-slate-700">{tool.label}</span>
+            { href: "/profile", title: "Your profile", description: "Keep your details up to date", Icon: UserRound },
+            { href: "/workspace", title: "Career workspace", description: "Build skills and prepare", Icon: BriefcaseBusiness },
+            { href: "/portfolio", title: "Portfolio preview", description: "Review your professional profile", Icon: CalendarDays },
+          ].map(({ href, title, description, Icon }) => (
+            <Link key={href} href={href} className="group flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white p-4 transition hover:border-red-200 hover:bg-red-50/30">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 text-slate-500 transition group-hover:bg-red-50 group-hover:text-red-700"><Icon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /></span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-slate-800">{title}</span><span className="mt-0.5 block truncate text-xs text-slate-500">{description}</span></span>
+              <ArrowUpRight className="h-4 w-4 text-slate-300 transition group-hover:text-red-700" aria-hidden="true" />
             </Link>
           ))}
-        </div>
+        </section>
       </div>
     </div>
   );

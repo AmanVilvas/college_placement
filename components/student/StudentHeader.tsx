@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { useApiResource } from "@/lib/useApi";
 import { STUDENT_PROFILE_KEY, useStudentProfile } from "@/lib/studentState";
 import { Notification } from "@/lib/types";
+import { StudentAvatar } from "@/components/shared/StudentAvatar";
 
 interface StudentHeaderProps {
   title: string;
@@ -75,12 +76,10 @@ export function StudentHeader({ title, subtitle }: StudentHeaderProps) {
             className="relative p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
           >
             <Bell className="w-4 h-4" />
-            {unreadCount > 0 && <span className="absolute -right-1 -top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[9px] font-bold text-white ring-2 ring-white">{unreadCount > 9 ? "9+" : unreadCount}</span>}
+            {unreadCount > 0 && <span className="absolute -right-1 -top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white ring-2 ring-white">{unreadCount > 9 ? "9+" : unreadCount}</span>}
           </Link>
 
-          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow-xs" title={`${student.name} · ${student.rollNumber}`}>
-            {student.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}
-          </div>
+          <Link href="/profile" aria-label="Open my profile"><StudentAvatar name={student.name} avatarUrl={student.avatarUrl} className="h-7 w-7 text-xs"/></Link>
           <button type="button" onClick={() => void signOut()} disabled={signingOut}
             className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
             aria-label="Sign out of student account" title="Sign out">

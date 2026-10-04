@@ -38,14 +38,15 @@ export default function AdminCompanyDetailPage() {
     website: companyRow.website ?? "",
     industry: companyRow.industry ?? "",
     description: companyRow.description ?? "",
-    logoColor: companyRow.metadata?.logoColor ?? "#6366f1",
+    logoUrl: companyRow.logo_url ?? undefined,
+    logoColor: companyRow.metadata?.logoColor ?? "#b91c1c",
   } : undefined;
   const drivesList: Drive[] = (driveRows ?? []).map((drive) => ({
     id: drive.id,
     companyId: drive.company_id,
     companyName: company?.name ?? "",
     companyLogoUrl: companyRow?.logo_url ?? undefined,
-    companyLogoColor: company?.logoColor ?? "#6366f1",
+    companyLogoColor: company?.logoColor ?? "#b91c1c",
     role: drive.role_title,
     jobType: drive.job_type as Drive["jobType"],
     packageLPA: drive.package_lpa,
@@ -80,7 +81,7 @@ export default function AdminCompanyDetailPage() {
     return (
       <div className="p-8 text-center">
         <p className="text-slate-500">Company not found</p>
-        <Link href="/admin/companies" className="text-indigo-600 font-semibold text-sm mt-2 inline-block">
+        <Link href="/admin/companies" className="text-red-600 font-semibold text-sm mt-2 inline-block">
           ← Back to Companies
         </Link>
       </div>
@@ -126,7 +127,7 @@ export default function AdminCompanyDetailPage() {
       <div className="p-6 space-y-6">
         <Link
           href="/admin/companies"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-red-600 transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Companies Directory
         </Link>
@@ -135,7 +136,7 @@ export default function AdminCompanyDetailPage() {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-start gap-4">
-              <CompanyLogo name={company.name} logoColor={company.logoColor} size="xl" />
+              <CompanyLogo name={company.name} logoColor={company.logoColor} logoUrl={company.logoUrl} size="xl" />
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-2xl font-bold text-slate-900">{company.name}</h1>
@@ -149,7 +150,7 @@ export default function AdminCompanyDetailPage() {
                     href={company.website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-indigo-600 hover:underline flex items-center gap-1"
+                    className="text-red-600 hover:underline flex items-center gap-1"
                   >
                     <Globe className="w-3.5 h-3.5" /> {company.website.replace("https://", "")} <ExternalLink className="w-3 h-3" />
                   </a>
@@ -164,7 +165,7 @@ export default function AdminCompanyDetailPage() {
               </div>
               <div>
                 <span className="text-slate-400">Registered Candidates:</span>
-                <p className="text-base font-bold text-indigo-600">
+                <p className="text-base font-bold text-red-600">
                   {companyApplications.length}
                 </p>
               </div>
@@ -178,7 +179,7 @@ export default function AdminCompanyDetailPage() {
             <h2 className="text-base font-bold text-slate-900">Placement Drives ({drivesList.length})</h2>
             <button
               onClick={() => setIsAddDriveOpen(true)}
-              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+              className="text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
             >
               <Plus className="w-3.5 h-3.5" /> Add Drive
             </button>
@@ -206,7 +207,7 @@ export default function AdminCompanyDetailPage() {
                         <div className="flex items-center gap-2.5">
                           <h3 className="text-lg font-bold text-slate-900">{drive.role}</h3>
                           <StatusBadge status={drive.status} />
-                          <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                          <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md">
                             {formatPackage(drive.packageLPA, drive.stipendMonthly)}
                           </span>
                         </div>
@@ -267,7 +268,7 @@ export default function AdminCompanyDetailPage() {
 
                       <Link
                         href={`/admin/applications?company=${encodeURIComponent(company.name)}`}
-                        className="text-indigo-600 font-semibold hover:underline flex items-center gap-1 text-xs"
+                        className="text-red-600 font-semibold hover:underline flex items-center gap-1 text-xs"
                       >
                         View Registered Students ({driveApps.length}) →
                       </Link>

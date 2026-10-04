@@ -125,6 +125,7 @@ export function ConfirmParticipationDialog({
             <CompanyLogo
               name={drive.companyName}
               logoColor={drive.companyLogoColor}
+              logoUrl={drive.companyLogoUrl}
               size="sm"
             />
             <div>
@@ -182,7 +183,7 @@ export function ConfirmParticipationDialog({
                   value={form.fullName}
                   onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
                   placeholder="As per college records"
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.fullName ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-400 transition-colors ${errors.fullName ? "border-red-300 bg-red-50" : "border-slate-200"}`}
                 />
                 {errors.fullName && <p className="text-xs text-red-500 mt-1">{errors.fullName}</p>}
               </div>
@@ -196,7 +197,7 @@ export function ConfirmParticipationDialog({
                   value={form.rollNumber}
                   onChange={(e) => setForm((f) => ({ ...f, rollNumber: e.target.value }))}
                   placeholder="Your campus roll number"
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.rollNumber ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-400 transition-colors ${errors.rollNumber ? "border-red-300 bg-red-50" : "border-slate-200"}`}
                 />
                 {errors.rollNumber && <p className="text-xs text-red-500 mt-1">{errors.rollNumber}</p>}
               </div>
@@ -210,7 +211,7 @@ export function ConfirmParticipationDialog({
                   value={form.classYear}
                   onChange={(e) => setForm((f) => ({ ...f, classYear: e.target.value }))}
                   placeholder="e.g. 3rd year or 2027 batch"
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.classYear ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-400 transition-colors ${errors.classYear ? "border-red-300 bg-red-50" : "border-slate-200"}`}
                 />
                 {errors.classYear && <p className="text-xs text-red-500 mt-1">{errors.classYear}</p>}
               </div>
@@ -224,7 +225,7 @@ export function ConfirmParticipationDialog({
                   value={form.section}
                   onChange={(e) => setForm((f) => ({ ...f, section: e.target.value }))}
                   placeholder="e.g. A"
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.section ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-400 transition-colors ${errors.section ? "border-red-300 bg-red-50" : "border-slate-200"}`}
                 />
                 {errors.section && <p className="text-xs text-red-500 mt-1">{errors.section}</p>}
               </div>
@@ -238,7 +239,7 @@ export function ConfirmParticipationDialog({
                   value={form.degree}
                   onChange={(e) => setForm((f) => ({ ...f, degree: e.target.value }))}
                   placeholder="e.g. B.Tech"
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.degree ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-400 transition-colors ${errors.degree ? "border-red-300 bg-red-50" : "border-slate-200"}`}
                 />
                 {errors.degree && <p className="text-xs text-red-500 mt-1">{errors.degree}</p>}
               </div>
@@ -252,7 +253,7 @@ export function ConfirmParticipationDialog({
                   value={form.specialization}
                   onChange={(e) => setForm((f) => ({ ...f, specialization: e.target.value, branch: e.target.value }))}
                   placeholder="e.g. Computer Science"
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.specialization ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-400 transition-colors ${errors.specialization ? "border-red-300 bg-red-50" : "border-slate-200"}`}
                 />
                 {errors.specialization && <p className="text-xs text-red-500 mt-1">{errors.specialization}</p>}
               </div>
@@ -266,7 +267,7 @@ export function ConfirmParticipationDialog({
                   value={form.collegeEmail}
                   onChange={(e) => setForm((f) => ({ ...f, collegeEmail: e.target.value }))}
                   placeholder="you@college.edu"
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.collegeEmail ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-400 transition-colors ${errors.collegeEmail ? "border-red-300 bg-red-50" : "border-slate-200"}`}
                 />
                 {errors.collegeEmail && <p className="text-xs text-red-500 mt-1">{errors.collegeEmail}</p>}
               </div>
@@ -280,7 +281,7 @@ export function ConfirmParticipationDialog({
                   value={form.phone}
                   onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                   placeholder="10-digit mobile"
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.phone ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-400 transition-colors ${errors.phone ? "border-red-300 bg-red-50" : "border-slate-200"}`}
                 />
                 {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
               </div>
@@ -295,7 +296,7 @@ export function ConfirmParticipationDialog({
                   value={form.resumeUrl}
                   onChange={(e) => setForm((f) => ({ ...f, resumeUrl: e.target.value }))}
                   placeholder="https://drive.google.com/file/d/..."
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors ${errors.resumeUrl ? "border-red-300 bg-red-50" : "border-slate-200"}`}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-400 transition-colors ${errors.resumeUrl ? "border-red-300 bg-red-50" : "border-slate-200"}`}
                 />
                 {errors.resumeUrl && <p className="text-xs text-red-500 mt-1">{errors.resumeUrl}</p>}
               </div>
@@ -311,7 +312,7 @@ export function ConfirmParticipationDialog({
                   value={form.applicationReferenceId}
                   onChange={(e) => setForm((f) => ({ ...f, applicationReferenceId: e.target.value }))}
                   placeholder="Reference ID from the official portal (if available)"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-colors"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-400 transition-colors"
                 />
               </div>
             </div>
@@ -323,7 +324,7 @@ export function ConfirmParticipationDialog({
                 id="confirm-check"
                 checked={form.confirmed}
                 onChange={(e) => setForm((f) => ({ ...f, confirmed: e.target.checked }))}
-                className="mt-0.5 w-4 h-4 accent-indigo-600 flex-shrink-0"
+                className="mt-0.5 w-4 h-4 accent-red-600 flex-shrink-0"
               />
               <label htmlFor="confirm-check" className="text-xs text-slate-600 cursor-pointer leading-relaxed">
                 I confirm that I want the placement team to record my participation for{" "}
@@ -338,7 +339,7 @@ export function ConfirmParticipationDialog({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold py-3 rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-semibold py-3 rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
             >
               <CheckCircle className="w-4 h-4" />
               {isSubmitting ? "Saving…" : "Submit Participation Details"}

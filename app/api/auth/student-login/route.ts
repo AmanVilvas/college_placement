@@ -51,7 +51,7 @@ export async function POST(request: Request) {
             id: studentRow.student_id,
             name: studentName,
             rollNumber: studentRow.roll_number,
-            email: studentEmail,
+            email: studentRow.email || studentEmail,
             phone: studentRow.phone || "",
             branch: studentRow.department || "",
             section: studentRow.section || "",
@@ -62,6 +62,7 @@ export async function POST(request: Request) {
             twelfthPercent: studentRow.twelfth_percent == null ? 0 : Number(studentRow.twelfth_percent),
             backlogs: studentRow.backlogs ?? 0,
             skills: studentRow.skills ?? [],
+            avatarUrl: studentRow.profile_data?.avatarUrl || "",
           };
 
           if (studentRow.user_id) {

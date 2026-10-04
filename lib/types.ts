@@ -108,6 +108,7 @@ export interface Application {
   driveName: string;  // role name
   companyId: string;
   companyName: string;
+  companyLogoUrl?: string;
   status: ApplicationStatus;
   appliedAt?: string;
   confirmedAt?: string;

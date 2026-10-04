@@ -22,7 +22,7 @@ export function CompanyLogo({ name, logoColor, logoUrl, size = "md", className }
     return (
       <img
         src={logoUrl}
-        alt={name}
+        alt={`${name} logo`}
         className={cn("rounded-xl object-contain bg-white border border-slate-100", SIZE_CLASSES[size], className)}
       />
     );

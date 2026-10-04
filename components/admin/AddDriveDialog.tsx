@@ -100,7 +100,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = [] }: 
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
         <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center text-violet-600">
+            <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-red-600">
               <CalendarDays className="w-4 h-4" />
             </div>
             <div>
@@ -115,19 +115,19 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = [] }: 
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {/* Dual Link Explanation Callout */}
-          <div className="bg-indigo-50/80 border border-indigo-100 rounded-xl p-3.5 space-y-2 text-xs text-indigo-900">
-            <div className="flex items-center gap-1.5 font-bold text-indigo-950">
-              <Sparkles className="w-4 h-4 text-indigo-600" />
-              <span>How Student Applications Work on PlacementOS:</span>
+          <div className="bg-red-50/80 border border-red-100 rounded-xl p-3.5 space-y-2 text-xs text-red-900">
+            <div className="flex items-center gap-1.5 font-bold text-red-950">
+              <Sparkles className="w-4 h-4 text-red-600" />
+              <span>How student applications work with MMDU Placement Cell:</span>
             </div>
             <div className="grid sm:grid-cols-2 gap-2 pt-1">
-              <div className="bg-white/90 p-2.5 rounded-lg border border-indigo-200/50">
+              <div className="bg-white/90 p-2.5 rounded-lg border border-red-200/50">
                 <span className="font-bold text-slate-800 flex items-center gap-1 mb-0.5">
                   <Globe className="w-3.5 h-3.5 text-blue-600" /> 1. Official Apply Link
                 </span>
                 <p className="text-[11px] text-slate-600">External URL: Google Form, careers portal, or university registration link.</p>
               </div>
-              <div className="bg-white/90 p-2.5 rounded-lg border border-indigo-200/50">
+              <div className="bg-white/90 p-2.5 rounded-lg border border-red-200/50">
                 <span className="font-bold text-slate-800 flex items-center gap-1 mb-0.5">
                   <ShieldAlert className="w-3.5 h-3.5 text-emerald-600" /> 2. Student Confirmation
                 </span>
@@ -142,7 +142,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = [] }: 
               <select
                 value={selectedCompanyId}
                 onChange={(e) => setCompanyId(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-500/30"
               >
                 <option value="">{companyOptions.length ? "Select a company" : "Add a company first"}</option>
                 {companyOptions.map((c) => (
@@ -159,7 +159,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = [] }: 
                 placeholder="e.g. Software Engineer, Data Analyst"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30"
               />
             </div>
           </div>
@@ -233,7 +233,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = [] }: 
                 min={afterDays(0)}
                 value={applicationDeadline}
                 onChange={(e) => setApplicationDeadline(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-500/30"
               />
             </div>
 
@@ -245,7 +245,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = [] }: 
                 min={applicationDeadline}
                 value={driveDate}
                 onChange={(e) => setDriveDate(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-500/30"
               />
             </div>
           </div>
@@ -253,7 +253,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = [] }: 
           <div>
             <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
               <span>Official External Application Link *</span>
-              <span className="text-[11px] text-indigo-600 font-normal">Where students apply</span>
+              <span className="text-[11px] text-red-600 font-normal">Where students apply</span>
             </label>
             <input
               type="url"
@@ -261,7 +261,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = [] }: 
               placeholder="e.g. https://forms.gle/abc123xyz or https://careers.company.com/apply"
               value={officialApplyLink}
               onChange={(e) => setOfficialApplyLink(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 font-mono text-xs"
+              className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 font-mono text-xs"
             />
           </div>
 
@@ -278,7 +278,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = [] }: 
                       key={b}
                       type="button"
                       onClick={() => toggleBranch(b)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${selected ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"}`}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${selected ? "bg-red-600 text-white border-red-600" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"}`}
                     >
                       {b}
                     </button>
@@ -318,7 +318,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = [] }: 
               placeholder="e.g. Data Structures, React, Node.js, System Design"
               value={skills}
               onChange={(e) => setSkills(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+              className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-500/30"
             />
           </div>
 
@@ -341,7 +341,7 @@ export function AddDriveDialog({ isOpen, onClose, onAdd, companyOptions = [] }: 
             <button
               type="submit"
               disabled={saving || !companyOptions.length}
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm shadow-indigo-200 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-sm shadow-red-200 transition-colors flex items-center gap-1.5 disabled:opacity-50"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} {saving ? "Publishing…" : "Publish Placement Drive"}
             </button>

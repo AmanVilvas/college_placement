@@ -1,5 +1,6 @@
 "use client";
 
+import { DataSkeleton } from "@/components/shared/DataSkeleton";
 import { apiMutate, useApiResource } from "@/lib/useApi";
 import { StudentHeader } from "@/components/student/StudentHeader";
 import { formatDateTime } from "@/lib/utils";
@@ -8,8 +9,8 @@ import Link from "next/link";
 import { Notification } from "@/lib/types";
 
 const CATEGORY_ICONS: Record<string, { icon: typeof Bell; color: string; bg: string }> = {
-  "Placement update": { icon: Info, color: "text-indigo-600", bg: "bg-indigo-100" },
-  "New Drive": { icon: Building2, color: "text-indigo-600", bg: "bg-indigo-100" },
+  "Placement update": { icon: Info, color: "text-red-600", bg: "bg-red-100" },
+  "New Drive": { icon: Building2, color: "text-red-600", bg: "bg-red-100" },
   "Deadline Reminder": { icon: Clock, color: "text-amber-600", bg: "bg-amber-100" },
   "Shortlist": { icon: Star, color: "text-purple-600", bg: "bg-purple-100" },
   "Interview": { icon: Bell, color: "text-blue-600", bg: "bg-blue-100" },
@@ -37,8 +38,8 @@ export default function NotificationsPage() {
       <StudentHeader title="Notifications" subtitle={`${unread.length} unread notifications`} />
       <div className="p-6 space-y-6">
         {error && <p role="alert" className="rounded-lg bg-rose-50 p-3 text-xs text-rose-700">{error}</p>}
-        {loading && <p className="text-xs text-slate-500">Loading notifications…</p>}
-        {unread.length > 0 && <button onClick={() => void markAllRead()} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Mark all as read</button>}
+        {loading && <DataSkeleton label="Loading notifications…" count={4} />}
+        {unread.length > 0 && <button onClick={() => void markAllRead()} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50">Mark all as read</button>}
         {unread.length > 0 && (
           <div>
             <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
@@ -49,7 +50,7 @@ export default function NotificationsPage() {
                 const cat = CATEGORY_ICONS[notif.category] || CATEGORY_ICONS["General"];
                 const Icon = cat.icon;
                 return (
-                      <div key={notif.id} className="bg-white rounded-xl border border-indigo-100 shadow-sm p-4 flex gap-4">
+                      <div key={notif.id} className="bg-white rounded-xl border border-red-100 shadow-sm p-4 flex gap-4">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cat.bg}`}>
                       <Icon className={`w-5 h-5 ${cat.color}`} />
                     </div>
@@ -62,12 +63,12 @@ export default function NotificationsPage() {
                           </span>
                           <h3 className="text-sm font-bold text-slate-900 mt-0.5">{notif.title}</h3>
                         </div>
-                        <span className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-1" />
+                        <span className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0 mt-1" />
                       </div>
                       <p className="text-xs text-slate-600 mt-1 leading-relaxed">{notif.message}</p>
                       <p className="text-[10px] text-slate-400 mt-2">{formatDateTime(notif.createdAt)}</p>
-                      {notif.driveId && <Link href={`/companies/${notif.driveId}`} className="mt-2 inline-block text-[10px] font-semibold text-indigo-700 hover:underline">View related drive →</Link>}
-                      <button onClick={() => void markRead(notif.id)} className="mt-2 text-[10px] font-semibold text-indigo-700">Mark as read</button>
+                      {notif.driveId && <Link href={`/companies/${notif.driveId}`} className="mt-2 inline-block text-[10px] font-semibold text-red-700 hover:underline">View related drive →</Link>}
+                      <button onClick={() => void markRead(notif.id)} className="mt-2 text-[10px] font-semibold text-red-700">Mark as read</button>
                     </div>
                   </div>
                 );
@@ -98,7 +99,7 @@ export default function NotificationsPage() {
                       <h3 className="text-sm font-semibold text-slate-700 mt-0.5">{notif.title}</h3>
                       <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-2">{notif.message}</p>
                       <p className="text-[10px] text-slate-400 mt-2">{formatDateTime(notif.createdAt)}</p>
-                      {notif.driveId && <Link href={`/companies/${notif.driveId}`} className="mt-2 inline-block text-[10px] font-semibold text-indigo-700 hover:underline">View related drive →</Link>}
+                      {notif.driveId && <Link href={`/companies/${notif.driveId}`} className="mt-2 inline-block text-[10px] font-semibold text-red-700 hover:underline">View related drive →</Link>}
                     </div>
                   </div>
                 );
@@ -106,7 +107,7 @@ export default function NotificationsPage() {
             </div>
           </div>
         )}
-        {notifications.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center"><Bell className="mx-auto h-8 w-8 text-slate-300"/><h2 className="mt-3 font-semibold text-slate-800">You’re all caught up</h2><p className="mt-1 text-xs text-slate-500">New placement updates will appear here.</p></div>}
+        {!loading && notifications.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center"><Bell className="mx-auto h-8 w-8 text-slate-300"/><h2 className="mt-3 font-semibold text-slate-800">You’re all caught up</h2><p className="mt-1 text-xs text-slate-500">New placement updates will appear here.</p></div>}
       </div>
     </div>
   );

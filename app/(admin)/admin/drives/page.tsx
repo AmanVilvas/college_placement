@@ -1,5 +1,6 @@
 "use client";
 
+import { DataSkeleton } from "@/components/shared/DataSkeleton";
 import { useState, useCallback } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
@@ -8,7 +9,7 @@ import { AddDriveDialog } from "@/components/admin/AddDriveDialog";
 import { useApiResource, apiMutate } from "@/lib/useApi";
 import { Drive, DriveStatus } from "@/lib/types";
 import { formatPackage, formatDate, getDaysUntilDeadline } from "@/lib/utils";
-import { CalendarDays, Plus, MapPin, Users, Globe, ExternalLink, Search, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
+import { CalendarDays, Plus, MapPin, Users, Globe, ExternalLink, Search, RefreshCw, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 interface ApiDrive {
@@ -42,7 +43,7 @@ function apiDriveToLocalDrive(d: ApiDrive): Drive {
     companyId: d.company_id,
     companyName: d.companies?.name ?? "Unknown",
     companyLogoUrl: d.companies?.logo_url,
-    companyLogoColor: d.companies?.metadata?.logoColor ?? "#6366f1",
+    companyLogoColor: d.companies?.metadata?.logoColor ?? "#b91c1c",
     role: d.role_title,
     jobType: d.job_type as Drive["jobType"],
     packageLPA: d.package_lpa ?? undefined,
@@ -97,7 +98,7 @@ export default function AdminDrivesPage() {
   const companyOptions = (apiCompanies ?? []).map((c) => ({
         id: c.id,
         name: c.name,
-        logoColor: c.metadata?.logoColor ?? "#6366f1",
+        logoColor: c.metadata?.logoColor ?? "#b91c1c",
         website: "",
         description: "",
         industry: "",
@@ -177,10 +178,10 @@ export default function AdminDrivesPage() {
           <button
             onClick={refetchDrives}
             disabled={drivesLoading}
-            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-600 transition-colors p-1.5 rounded-lg hover:bg-slate-100"
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-slate-100"
             title="Sync with database"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${drivesLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className="w-3.5 h-3.5" />
             <span>Sync</span>
           </button>
         </div>
@@ -204,7 +205,7 @@ export default function AdminDrivesPage() {
               placeholder="Search company or role..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+              className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30"
             />
           </div>
 
@@ -214,7 +215,7 @@ export default function AdminDrivesPage() {
                 <button
                   key={s}
                   onClick={() => setStatusFilter(s)}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${statusFilter === s ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+                  className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${statusFilter === s ? "bg-red-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}
                 >
                   {s}
                 </button>
@@ -224,18 +225,16 @@ export default function AdminDrivesPage() {
               onClick={refetchDrives}
               disabled={drivesLoading}
               title="Refresh"
-              className="p-2 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-colors disabled:opacity-40"
+              className="p-2 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-red-600 hover:border-red-200 transition-colors disabled:opacity-40"
             >
-              <RefreshCw className={`w-4 h-4 ${drivesLoading ? "animate-spin" : ""}`} />
+              <RefreshCw className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* Drives List */}
         {drivesLoading ? (
-          <div className="flex items-center justify-center py-20 text-slate-400">
-            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading drives…
-          </div>
+          <DataSkeleton label="Loading drives…" variant="list" count={4} />
         ) : (
           <div className="space-y-4">
             {filtered.length === 0 && (
@@ -244,7 +243,7 @@ export default function AdminDrivesPage() {
                 <p className="text-slate-500 font-medium">No drives found</p>
                 <button
                   onClick={() => setIsAddOpen(true)}
-                  className="mt-3 text-sm text-indigo-600 font-semibold hover:underline"
+                  className="mt-3 text-sm text-red-600 font-semibold hover:underline"
                 >
                   Add first drive
                 </button>
@@ -260,14 +259,14 @@ export default function AdminDrivesPage() {
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
-                      <CompanyLogo name={drive.companyName} logoColor={drive.companyLogoColor} size="lg" />
+                      <CompanyLogo name={drive.companyName} logoColor={drive.companyLogoColor} logoUrl={drive.companyLogoUrl} size="lg" />
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-bold text-slate-900 text-base">{drive.companyName}</h3>
                           <span className="text-slate-400">•</span>
                           <span className="font-semibold text-slate-700 text-sm">{drive.role}</span>
                           <StatusBadge status={drive.status} />
-                          <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                          <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md">
                             {formatPackage(drive.packageLPA, drive.stipendMonthly)}
                           </span>
                         </div>
@@ -323,7 +322,7 @@ export default function AdminDrivesPage() {
                     <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-50">
                       <span className="text-[10px] text-slate-400 font-medium mr-1 self-center">Eligible:</span>
                       {drive.eligibility.branches.map((b) => (
-                        <span key={b} className="bg-indigo-50 text-indigo-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                        <span key={b} className="bg-red-50 text-red-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">
                           {b}
                         </span>
                       ))}
@@ -338,7 +337,7 @@ export default function AdminDrivesPage() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs text-slate-600">
                     <Link
                       href={`/admin/applications?drive=${encodeURIComponent(drive.id)}`}
-                      className="text-indigo-600 font-semibold hover:underline flex items-center gap-1"
+                      className="text-red-600 font-semibold hover:underline flex items-center gap-1"
                     >
                       Manage Candidates & Applications →
                     </Link>

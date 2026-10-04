@@ -1,21 +1,25 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
+const geist = localFont({
+  src: "../node_modules/next/dist/next-devtools/server/font/geist-latin.woff2",
+  variable: "--font-geist",
+  weight: "100 900",
+  display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
+const geistMono = localFont({
+  src: "../node_modules/next/dist/next-devtools/server/font/geist-mono-latin.woff2",
+  variable: "--font-geist-mono",
+  weight: "100 900",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "PlacementOS • College Placement Management Platform",
-  description: "A modern, unified campus recruitment operating system for universities, placement cells, and students.",
+  title: "MMDU Placement Cell | MM(DU) Mullana",
+  description: "Placement drives, student applications, and recruitment updates from the MMDU Placement Cell at MM(DU) Mullana.",
 };
 
 export default function RootLayout({
@@ -26,7 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${geist.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans bg-[#f8fafc] text-[#0f172a]">
         {children}

@@ -42,7 +42,7 @@ export function getStatusColor(status: ApplicationStatus): string {
   switch (status) {
     case "Not Responded": return "bg-slate-100 text-slate-700 border-slate-200";
     case "Eligible": return "bg-blue-50 text-blue-700 border-blue-200";
-    case "Interested": return "bg-indigo-50 text-indigo-700 border-indigo-200";
+    case "Interested": return "bg-red-50 text-red-700 border-red-200";
     case "Applied": return "bg-cyan-50 text-cyan-700 border-cyan-200";
     case "Confirmed": return "bg-teal-50 text-teal-700 border-teal-200";
     case "Shortlisted": return "bg-amber-50 text-amber-700 border-amber-200";

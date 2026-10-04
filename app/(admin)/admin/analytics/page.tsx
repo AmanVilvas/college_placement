@@ -65,7 +65,7 @@ export default function AdminAnalyticsPage() {
     <div className="space-y-6 p-6">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatsCard title="Placement Rate" value={loading ? "—" : `${placementRate}%`} subtitle={`${placedStudentIds.size} of ${studentRows.length} students`} icon={TrendingUp} color="emerald" />
-        <StatsCard title="Highest CTC Offer" value={loading || !highestPackage ? "—" : `₹${highestPackage.toFixed(1)} LPA`} subtitle="From selected or placed applications" icon={Award} color="indigo" />
+        <StatsCard title="Highest CTC Offer" value={loading || !highestPackage ? "—" : `₹${highestPackage.toFixed(1)} LPA`} subtitle="From selected or placed applications" icon={Award} color="red" />
         <StatsCard title="Average CTC Package" value={loading || !averagePackage ? "—" : `₹${averagePackage.toFixed(1)} LPA`} subtitle="Recorded full-time offers" icon={Zap} color="purple" />
         <StatsCard title="Offers Recorded" value={loading ? "—" : selectedApps.length} subtitle="Selected, placed, or offer received" icon={Building2} color="cyan" />
       </div>
@@ -75,7 +75,7 @@ export default function AdminAnalyticsPage() {
           <div><h2 className="font-bold text-slate-900">Placement by department</h2><p className="text-xs text-slate-500">Based on current student and application records</p></div>
           {branchData.length ? branchData.map((item) => <div key={item.department} className="space-y-1.5">
             <div className="flex justify-between gap-3 text-xs"><span className="font-semibold text-slate-800">{item.department}</span><span className="text-slate-500">{item.placed} / {item.total} · {item.rate}%</span></div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-indigo-600" style={{ width: `${item.rate}%` }} /></div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-red-600" style={{ width: `${item.rate}%` }} /></div>
           </div>) : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No student records available yet.</p>}
         </section>
 
@@ -83,7 +83,7 @@ export default function AdminAnalyticsPage() {
           <div><h2 className="font-bold text-slate-900">Company activity</h2><p className="text-xs text-slate-500">Companies with drives and application records</p></div>
           {companyData.length ? companyData.map((company) => <div key={company.id} className="flex items-center justify-between gap-3 border-b border-slate-50 py-2.5 text-xs">
             <div><p className="font-bold text-sm text-slate-900">{company.name}</p><p className="text-slate-400">{company.applicants} applicants</p></div>
-            <div className="text-right"><p className="font-semibold text-indigo-600">{company.package}</p><p className="text-emerald-700">{company.selections} selected</p></div>
+            <div className="text-right"><p className="font-semibold text-red-600">{company.package}</p><p className="text-emerald-700">{company.selections} selected</p></div>
           </div>) : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No placement drives have been added yet.</p>}
         </section>
       </div>

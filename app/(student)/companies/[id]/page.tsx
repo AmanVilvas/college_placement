@@ -1,5 +1,6 @@
 "use client";
 
+import { DataSkeleton } from "@/components/shared/DataSkeleton";
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { StudentHeader } from "@/components/student/StudentHeader";
@@ -64,7 +65,7 @@ function toDrive(row: ApiDrive) {
     companyId: row.company_id,
     companyName: row.companies?.name ?? "Company",
     companyLogoUrl: row.companies?.logo_url ?? undefined,
-    companyLogoColor: row.companies?.metadata?.logoColor ?? "#6366f1",
+    companyLogoColor: row.companies?.metadata?.logoColor ?? "#b91c1c",
     role: row.role_title,
     jobType,
     packageLPA: row.package_lpa == null ? undefined : Number(row.package_lpa),
@@ -111,11 +112,13 @@ export default function DriveDetailPage() {
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
+  if (driveLoading) return <DataSkeleton label="Loading drive…" className="p-6" count={4} />;
+
   if (!drive) {
     return (
       <div className="p-12 text-center">
-        <p className="text-slate-500 mb-2">{driveLoading ? "Loading drive…" : "Drive not found in the placement database"}</p>
-        <Link href="/companies" className="text-indigo-600 font-semibold text-xs hover:underline">
+        <p className="text-slate-500 mb-2">Drive not found in the placement database</p>
+        <Link href="/companies" className="text-red-600 font-semibold text-xs hover:underline">
           ← Back to Companies
         </Link>
       </div>
@@ -152,7 +155,7 @@ export default function DriveDetailPage() {
         <div className="card-clean p-6 sm:p-8 bg-white space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             <div className="flex items-start gap-4">
-              <CompanyLogo name={drive.companyName} logoColor={drive.companyLogoColor} size="xl" />
+              <CompanyLogo name={drive.companyName} logoColor={drive.companyLogoColor} logoUrl={drive.companyLogoUrl} size="xl" />
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-2xl font-bold tracking-tight text-slate-950">{drive.companyName}</h1>
@@ -243,7 +246,7 @@ export default function DriveDetailPage() {
             {/* The Critical Two-Step Application Card */}
             <div className="card-clean p-6 bg-white border-slate-300 shadow-sm space-y-5 sticky top-20">
               <div className="space-y-1 pb-3 border-b border-slate-100">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 block">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-red-600 block">
                   Apply or Confirm
                 </span>
                 <h3 className="text-base font-bold text-slate-900">Choose an action</h3>
@@ -279,7 +282,7 @@ export default function DriveDetailPage() {
                   <button
                     onClick={() => !isClosed && setShowConfirmDialog(true)}
                     disabled={isClosed}
-                    className={`min-h-11 rounded-xl px-2 py-2 text-xs font-semibold flex items-center justify-center gap-1 transition-colors shadow-xs ${isClosed ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700 text-white"}`}
+                    className={`min-h-11 rounded-xl px-2 py-2 text-xs font-semibold flex items-center justify-center gap-1 transition-colors shadow-xs ${isClosed ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-red-600 hover:bg-red-700 text-white"}`}
                   >
                     <Check className="w-3.5 h-3.5 flex-shrink-0" />
                     Confirm Here

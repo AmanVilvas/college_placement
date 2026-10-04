@@ -9,7 +9,7 @@ interface StatsCardProps {
   subtitle?: string;
   icon?: LucideIcon;
   trend?: { value: number; label: string };
-  color?: "indigo" | "purple" | "cyan" | "emerald" | "amber" | "rose";
+  color?: "red" | "purple" | "cyan" | "emerald" | "amber" | "rose";
   className?: string;
 }
 
@@ -17,21 +17,21 @@ export function StatsCard({ title, value, subtitle, icon: Icon, trend, className
   return (
     <div
       className={cn(
-        "card-clean p-4 sm:p-5 flex flex-col justify-between hover:border-slate-300/80 transition-all",
+        "flex min-h-[112px] flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-4 transition-colors hover:border-slate-300 sm:p-4",
         className
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{title}</span>
+        <span className="text-xs font-medium text-slate-500">{title}</span>
         {Icon && (
-          <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500">
-            <Icon className="w-3.5 h-3.5" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400">
+            <Icon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
           </div>
         )}
       </div>
 
       <div className="mt-3">
-        <p className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{value}</p>
+        <p className="text-[1.7rem] font-semibold leading-none tracking-[-0.04em] text-slate-950">{value}</p>
         <div className="flex items-center gap-2 mt-1">
           {subtitle && <p className="text-xs text-slate-400 font-normal">{subtitle}</p>}
           {trend && (

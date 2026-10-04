@@ -2,48 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard, Building2, CalendarDays, Users, FileText, AlertCircle, UserCheck,
-  BarChart3, Bell, Settings, GraduationCap, Menu, X, Workflow,
-} from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { UniversityLogo } from "@/components/shared/UniversityLogo";
 import { useState } from "react";
+import { adminNavGroups as navGroups, isNavigationActive } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { useApiResource } from "@/lib/useApi";
-
-const navGroups = [
-  { label: "Overview", items: [{ href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard }] },
-  { label: "Recruitment", items: [
-    { href: "/admin/companies", label: "Companies", icon: Building2 },
-    { href: "/admin/drives", label: "Placement Drives", icon: CalendarDays },
-    { href: "/admin/students", label: "Students", icon: Users },
-    { href: "/admin/applications", label: "Applications", icon: FileText },
-    { href: "/admin/operations", label: "Operations center", icon: Workflow },
-  ] },
-  { label: "Operations", items: [
-    { href: "/admin/followups", label: "Follow-ups", icon: AlertCircle },
-    { href: "/admin/placed", label: "Placed Students", icon: UserCheck },
-  ] },
-  { label: "Reporting", items: [
-    { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-    { href: "/admin/notifications", label: "Broadcasts", icon: Bell },
-    { href: "/admin/settings", label: "Settings", icon: Settings },
-  ] },
-];
 
 function SidebarContent({ pathname, onNavigate, followUpCount }: { pathname: string; onNavigate: () => void; followUpCount: number }) {
   return (
     <div className="flex h-full flex-col border-r border-slate-200/70 bg-white">
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
         <Link href="/admin/dashboard" onClick={onNavigate} className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-white shadow-sm"><GraduationCap className="h-4 w-4" /></div>
-          <div><span className="block text-sm font-bold leading-tight tracking-tight text-slate-900">PlacementOS</span><span className="block text-[10px] font-medium text-slate-400">Placement Cell</span></div>
+          <UniversityLogo className="h-9 max-w-[180px]" />
         </Link>
       </div>
-      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
+      <nav aria-label="Placement office pages" className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
         {navGroups.map((group) => <div key={group.label}><span className="mb-1.5 block px-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{group.label}</span><div className="space-y-0.5">{group.items.map((item) => {
-          const isActive = pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
-          const badge = item.href === "/admin/followups" && followUpCount > 0 ? String(followUpCount) : undefined;
-          return <Link key={item.href} href={item.href} onClick={onNavigate} className={cn("nav-item justify-between", isActive && "active")}><div className="flex items-center gap-2.5"><item.icon className="h-4 w-4 flex-shrink-0" /><span>{item.label}</span></div>{badge && <span className={cn("rounded-full border px-1.5 py-0.2 text-[10px] font-bold", isActive ? "border-rose-500 bg-rose-500 text-white" : "border-rose-200/70 bg-rose-50 text-rose-600")}>{badge}</span>}</Link>;
+          const isActive = isNavigationActive(pathname, item.href);
+          const badge = item.href === "/admin/followups" && followUpCount > 0 ? (followUpCount > 99 ? "99+" : String(followUpCount)) : undefined;
+          return <Link key={item.href} href={item.href} aria-current={isActive ? "page" : undefined} onClick={onNavigate} className={cn("nav-item justify-between", isActive && "active")}><div className="flex items-center gap-2.5"><item.icon className="h-4 w-4 flex-shrink-0" strokeWidth={1.75} aria-hidden="true" /><span>{item.label}</span></div>{badge && <span className={cn("rounded-full border px-1.5 py-0.2 text-[10px] font-bold", isActive ? "border-red-200 bg-red-50 text-red-700" : "border-red-200/70 bg-red-50 text-red-600")}>{badge}</span>}</Link>;
         })}</div></div>)}
       </nav>
       <div className="border-t border-slate-100 bg-slate-50/50 p-3"><div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white p-2 shadow-xs"><div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">PO</div><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-slate-900">Placement Officer</p><p className="truncate text-[10px] text-slate-400">Admin Console</p></div></div></div>

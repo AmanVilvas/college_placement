@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { studentProfileUpdate } from "@/lib/profileValidation";
 import { apiError, ApiError, currentProfile, databaseRequest, developmentDatabaseQuery } from "@/lib/server/supabase";
 
 const tables = new Set([
@@ -42,7 +43,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ resou
     }
     if (!isStaff && !isOwnStudentProfile) throw new ApiError(403, "Your role cannot perform this operation.");
     const path = await target(resource, id);
-    const input = bodySchema.parse(await request.json());
+    const rawInput = await request.json();
+    const input = isOwnStudentProfile ? studentProfileUpdate.parse(rawInput) : bodySchema.parse(rawInput);
 
     const directColumns: Record<string, Set<string>> = {
       companies: new Set(["archived", "name", "website", "industry", "description", "metadata"]),
@@ -53,7 +55,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ resou
     if (useDirectDatabase && directColumns[resource]) {
       const { profile } = await currentProfile();
       const allowedColumns = isOwnStudentProfile
-        ? new Set(["full_name", "phone", "skills"])
+        ? new Set(["email", "phone", "department", "year_of_study", "graduation_year", "cgpa", "tenth_percent", "twelfth_percent", "backlogs", "skills"])
         : directColumns[resource];
       const entries = Object.entries(input).filter(([column]) => allowedColumns.has(column));
       if (entries.length === 0 || entries.length !== Object.keys(input).length) {

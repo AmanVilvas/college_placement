@@ -23,10 +23,10 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string; border: string; 
     dot: "bg-blue-500",
   },
   "Interested": {
-    bg: "bg-indigo-50/80",
-    text: "text-indigo-700",
-    border: "border-indigo-200/60",
-    dot: "bg-indigo-500",
+    bg: "bg-red-50/80",
+    text: "text-red-700",
+    border: "border-red-200/60",
+    dot: "bg-red-500",
   },
   "Applied": {
     bg: "bg-sky-50/80",

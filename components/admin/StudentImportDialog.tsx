@@ -158,8 +158,8 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-100 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center">
-              <FileSpreadsheet className="w-4.5 h-4.5 text-indigo-600" />
+            <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center">
+              <FileSpreadsheet className="w-4.5 h-4.5 text-red-600" />
             </div>
             <div>
               <h2 className="font-bold text-slate-900">Import Student Data</h2>
@@ -198,7 +198,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
-                  isDragging ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
+                  isDragging ? "border-red-400 bg-red-50" : "border-slate-200 hover:border-red-300 hover:bg-slate-50"
                 }`}
               >
                 <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
@@ -370,10 +370,10 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
 
                         {/* Inline Form to Write / Edit Student Details */}
                         {isEditing && (
-                          <div className="mx-4 mb-3.5 bg-white border-2 border-indigo-200 rounded-xl p-4 shadow-md">
+                          <div className="mx-4 mb-3.5 bg-white border-2 border-red-200 rounded-xl p-4 shadow-md">
                             <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
                               <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                                <Pencil className="w-3.5 h-3.5 text-indigo-600" />
+                                <Pencil className="w-3.5 h-3.5 text-red-600" />
                                 Write / Edit details for student #{vr.rowIndex}
                               </p>
                               <span className="text-[11px] text-slate-400">
@@ -401,7 +401,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
                                         setEditValues((prev) => ({ ...prev, [key]: e.target.value }))
                                       }
                                       placeholder={placeholder}
-                                      className={`w-full text-xs px-3 py-1.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+                                      className={`w-full text-xs px-3 py-1.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-red-400 ${
                                         issue ? "border-amber-300 bg-amber-50/50" : "border-slate-200 bg-white"
                                       }`}
                                     />
@@ -423,7 +423,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
                                 </button>
                                 <button
                                   onClick={() => commitEdit(idx)}
-                                  className="flex items-center gap-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-1.5 rounded-lg transition-colors shadow-sm"
+                                  className="flex items-center gap-1.5 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded-lg transition-colors shadow-sm"
                                 >
                                   <CheckCheck className="w-3.5 h-3.5" /> Save Details
                                 </button>
@@ -439,7 +439,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
                 {activeRows.length > 8 && (
                   <button
                     onClick={() => setShowAll((v) => !v)}
-                    className="w-full py-2.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50/50 transition-colors flex items-center justify-center gap-1.5 border-t border-slate-100"
+                    className="w-full py-2.5 text-xs font-semibold text-red-600 hover:text-red-800 hover:bg-red-50/50 transition-colors flex items-center justify-center gap-1.5 border-t border-slate-100"
                   >
                     {showAll
                       ? <><ChevronUp className="w-3.5 h-3.5" /> Show less</>
@@ -461,8 +461,8 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
           {/* ───── Step: Importing ───── */}
           {step === "importing" && (
             <div className="flex flex-col items-center py-12 gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-indigo-100 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+              <div className="w-16 h-16 rounded-2xl bg-red-100 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-red-600 animate-spin" />
               </div>
               <div className="text-center">
                 <p className="font-semibold text-slate-900">Importing student records…</p>
@@ -524,12 +524,12 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
               <button
                 onClick={handleImport}
                 disabled={validatedRows.length === 0 || validatedRows.some((row) => row.errors.length > 0)}
-                className="flex-2 flex-grow py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
+                className="flex-2 flex-grow py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
               >
                 <FileCheck2 className="w-4 h-4" />
                 Import All {validatedRows.length} Students
                 {problemRows.length > 0 && (
-                  <span className="bg-indigo-700/60 px-2 py-0.5 rounded text-xs text-indigo-100 font-normal">
+                  <span className="bg-red-700/60 px-2 py-0.5 rounded text-xs text-red-100 font-normal">
                     ({problemRows.length} need review)
                   </span>
                 )}
@@ -543,7 +543,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
               </button>
               <button
                 onClick={() => { onSuccess(); handleClose(); }}
-                className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors"
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors"
               >
                 Go to Student Directory
               </button>

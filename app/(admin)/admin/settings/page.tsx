@@ -61,7 +61,7 @@ export default function AdminSettingsPage() {
           {/* Institution Settings */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 font-bold text-slate-900 text-base">
-              <Settings className="w-4 h-4 text-indigo-600" />
+              <Settings className="w-4 h-4 text-red-600" />
               <span>Institutional Identity</span>
             </div>
 
@@ -100,7 +100,7 @@ export default function AdminSettingsPage() {
           {/* Placement Policy Controls */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 font-bold text-slate-900 text-base">
-              <Sliders className="w-4 h-4 text-indigo-600" />
+              <Sliders className="w-4 h-4 text-red-600" />
               <span>Campus Hiring Policies & Eligibility Safeguards</span>
             </div>
 
@@ -114,7 +114,7 @@ export default function AdminSettingsPage() {
                   type="checkbox"
                   checked={settings.allowMultiOffers}
                   onChange={(e) => setSettings((current) => ({ ...current, allowMultiOffers: e.target.checked }))}
-                  className="w-4 h-4 accent-indigo-600"
+                  className="w-4 h-4 accent-red-600"
                 />
               </div>
 
@@ -152,12 +152,12 @@ export default function AdminSettingsPage() {
 
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 font-bold text-slate-900 text-base">
-              <Database className="w-4 h-4 text-indigo-600" />
+              <Database className="w-4 h-4 text-red-600" />
               <span>Public placement profile</span>
             </div>
             <label className="flex items-center justify-between gap-4 rounded-xl bg-slate-50 p-4 text-xs text-slate-700">
               <span><b className="block">Enable public placement page preview</b><span className="mt-1 block text-slate-500">Displays only the local sample statistics; no page is published externally.</span></span>
-              <input type="checkbox" checked={settings.publicPlacementProfile} onChange={(e) => setSettings((current) => ({ ...current, publicPlacementProfile: e.target.checked }))} className="h-4 w-4 accent-indigo-600" />
+              <input type="checkbox" checked={settings.publicPlacementProfile} onChange={(e) => setSettings((current) => ({ ...current, publicPlacementProfile: e.target.checked }))} className="h-4 w-4 accent-red-600" />
             </label>
             <p className="text-[10px] leading-4 text-amber-800">Role access, tenant isolation, audit enforcement, and secure storage require server-side authentication and authorization.</p>
             <Link href="/placements" className="inline-flex rounded-lg bg-slate-900 px-3.5 py-2.5 text-xs font-semibold text-white">Preview placement profile</Link>
@@ -165,14 +165,14 @@ export default function AdminSettingsPage() {
 
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 font-bold text-slate-900 text-base">
-              <Shield className="w-4 h-4 text-indigo-600" />
+              <Shield className="w-4 h-4 text-red-600" />
               <span>Role access preview</span>
             </div>
             <p className="text-xs leading-5 text-slate-500">Configure a sample permission matrix for the platform roles. These browser settings do not enforce access control or protect routes.</p>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-left text-xs">
                 <thead><tr className="border-b border-slate-100 text-slate-500"><th className="py-2 pr-3">Role</th>{capabilities.map((item) => <th key={item.key} className="px-3 py-2 font-semibold">{item.label}</th>)}</tr></thead>
-                <tbody className="divide-y divide-slate-50">{roleNames.map((role) => <tr key={role}><th className="py-2.5 pr-3 font-medium text-slate-700">{role}</th>{capabilities.map((item) => <td key={item.key} className="px-3 py-2.5"><input aria-label={`${role}: ${item.label}`} type="checkbox" checked={settings.rolePermissions[role][item.key]} onChange={(event) => setSettings((current) => ({ ...current, rolePermissions: { ...current.rolePermissions, [role]: { ...current.rolePermissions[role], [item.key]: event.target.checked } } }))} className="h-4 w-4 accent-indigo-600" /></td>)}</tr>)}</tbody>
+                <tbody className="divide-y divide-slate-50">{roleNames.map((role) => <tr key={role}><th className="py-2.5 pr-3 font-medium text-slate-700">{role}</th>{capabilities.map((item) => <td key={item.key} className="px-3 py-2.5"><input aria-label={`${role}: ${item.label}`} type="checkbox" checked={settings.rolePermissions[role][item.key]} onChange={(event) => setSettings((current) => ({ ...current, rolePermissions: { ...current.rolePermissions, [role]: { ...current.rolePermissions[role], [item.key]: event.target.checked } } }))} className="h-4 w-4 accent-red-600" /></td>)}</tr>)}</tbody>
               </table>
             </div>
             <p className="text-[10px] leading-4 text-amber-800">Production RBAC needs authenticated identities and server-side authorization checks on every data action.</p>
@@ -181,7 +181,7 @@ export default function AdminSettingsPage() {
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="submit"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-xl text-xs transition-colors shadow-sm"
+              className="bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-2.5 rounded-xl text-xs transition-colors shadow-sm"
             >
               Save Configuration Changes
             </button>

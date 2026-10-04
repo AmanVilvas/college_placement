@@ -1,4 +1,5 @@
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { PageNavigation } from "@/components/shared/PageNavigation";
 
 export default function AdminLayout({
   children,
@@ -8,6 +9,7 @@ export default function AdminLayout({
   return <div className="flex h-screen overflow-hidden bg-slate-50">
     <AdminSidebar />
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <PageNavigation kind="admin" />
       <main className="flex-1 overflow-y-auto">{children}</main>
     </div>
   </div>;

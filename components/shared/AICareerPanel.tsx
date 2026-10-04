@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { LoaderCircle, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { LoaderCircle, Mic, MicOff, Sparkles } from "lucide-react";
 
 type Mode = "assessment" | "resume" | "resume_review" | "interview" | "coach" | "study_plan" | "tpo";
 type ResumeDraft = { headline: string; summary: string; project: string };
@@ -15,9 +15,26 @@ type Props = {
 };
 type PracticeQuestion = { topic: string; question: string; choices: string[] };
 type AIResponse = Record<string, unknown>;
+type SpeechResultEvent = { resultIndex?: number; results: ArrayLike<{ 0: { transcript: string }; isFinal?: boolean }> };
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechResultEvent) => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+type SpeechWindow = Window & { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike };
 
 const fieldClass = "mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800";
-const buttonClass = "inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50";
+const buttonClass = "inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50";
+const interviewQuestions = [
+  "Explain a technical project you are proud of.",
+  "Tell me about a difficult bug and how you approached it.",
+  "How would you design a service that handles repeated requests safely?",
+];
 
 export function AICareerPanel({ mode, resume, targetRole = "", profile = "", context = "", onApplyResume }: Props) {
   const [loading, setLoading] = useState(false);
@@ -33,6 +50,19 @@ export function AICareerPanel({ mode, resume, targetRole = "", profile = "", con
   const [answer, setAnswer] = useState("");
   const [question, setQuestion] = useState("Tell me about a project you are proud of and the impact you made.");
   const [resumeText, setResumeText] = useState("");
+  const [listening, setListening] = useState(false);
+  const [voiceError, setVoiceError] = useState("");
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+
+  useEffect(() => () => {
+    const recognition = recognitionRef.current;
+    if (recognition) {
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      try { recognition.stop(); } catch { /* The browser may have already stopped listening. */ }
+    }
+  }, []);
 
   async function requestAI(payload: Record<string, unknown>) {
     setLoading(true);
@@ -71,6 +101,44 @@ export function AICareerPanel({ mode, resume, targetRole = "", profile = "", con
     await requestAI({ mode, resume: resumeText || `${resume?.headline ?? ""}\n${resume?.summary ?? ""}\n${resume?.project ?? ""}`.trim(), targetRole });
   }
   async function practiceInterview() { await requestAI({ mode, question, answer, targetRole }); }
+  function toggleDictation() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const SpeechRecognition = (window as SpeechWindow).SpeechRecognition ?? (window as SpeechWindow).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setVoiceError("Voice input is not supported in this browser. You can type your answer instead.");
+      return;
+    }
+    setVoiceError("");
+    setError("");
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = navigator.language || "en-US";
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results).slice(event.resultIndex ?? 0).map((result) => result[0]?.transcript ?? "").filter(Boolean).join(" ");
+      if (transcript) {
+        setResult(null);
+        setAnswer((current) => `${current}${current && !/\s$/.test(current) ? " " : ""}${transcript}`.slice(0, 3000));
+      }
+    };
+    recognition.onerror = (event) => {
+      setListening(false);
+      setVoiceError(event.error === "not-allowed" ? "Microphone access was blocked. Allow microphone access in your browser to use voice input." : "Voice input stopped. You can try again or type your answer.");
+    };
+    recognition.onend = () => setListening(false);
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+      setListening(true);
+    } catch {
+      setListening(false);
+      setVoiceError("Could not start voice input. Check microphone access and try again.");
+    }
+  }
   async function requestCoach() { await requestAI({ mode, prompt, profile }); }
   async function requestPlan() { await requestAI({ mode, topics: topic, days, level }); }
   async function requestTpo() { await requestAI({ mode, prompt, context }); }
@@ -83,14 +151,14 @@ export function AICareerPanel({ mode, resume, targetRole = "", profile = "", con
     assessment: "Generate a topic-specific quiz, take it, and get explanations. For self-study only.",
     resume: "Turn your own notes into a clearer draft. Review every claim before using it.",
     resume_review: "Get actionable feedback on evidence, clarity, and role keywords. No ATS score is invented.",
-    interview: "Practice a written response and get feedback on structure, evidence, and clarity.",
+    interview: "Type your response or dictate it with your microphone, then get AI feedback on structure, evidence, and clarity.",
     coach: "Get practical next steps tailored to the context you choose to share.",
     study_plan: "Make a manageable daily plan for topics you want to practice.",
     tpo: "Summarize the sample placement snapshot and draft human-reviewed follow-ups. No actions are taken.",
   };
 
-  return <section className="rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm sm:p-6">
-    <div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-indigo-600"/><h3 className="font-bold text-slate-900">{title[mode]}</h3></div>
+  return <section className="rounded-2xl border border-red-100 bg-white p-5 shadow-sm sm:p-6">
+    <div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-red-600"/><h3 className="font-bold text-slate-900">{title[mode]}</h3></div>
     <p className="mt-1 text-xs leading-5 text-slate-500">{subtitle[mode]}</p>
     <p className="mt-2 rounded-lg bg-amber-50 p-2.5 text-[10px] leading-4 text-amber-900">AI can be wrong. Review its suggestions; they do not establish eligibility, hiring outcomes, or academic performance. Text entered here is sent to the configured AI provider for this request.</p>
 
@@ -105,7 +173,7 @@ export function AICareerPanel({ mode, resume, targetRole = "", profile = "", con
 
     {mode === "resume_review" && <div className="mt-4 space-y-3"><label className="block text-xs font-semibold text-slate-600">Resume text<input aria-label="Resume text for review" value={resumeText} onChange={(event) => setResumeText(event.target.value)} placeholder="Paste resume text here, or use the current draft" className={fieldClass}/></label><button className={buttonClass} onClick={reviewResume} disabled={loading || (resumeText.trim().length < 30 && `${resume?.headline ?? ""}${resume?.summary ?? ""}${resume?.project ?? ""}`.trim().length < 30)}>{loading ? <LoaderCircle className="h-4 w-4 animate-spin"/> : <Sparkles className="h-4 w-4"/>}Review resume</button></div>}
 
-    {mode === "interview" && <div className="mt-4 space-y-3"><label className="block text-xs font-semibold text-slate-600">Practice question<input className={fieldClass} value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={500}/></label><label className="block text-xs font-semibold text-slate-600">Your answer<textarea className={fieldClass} rows={5} value={answer} onChange={(event) => setAnswer(event.target.value)} maxLength={3000} placeholder="Answer in your own words. Use only experiences that are true for you."/></label><button className={buttonClass} onClick={practiceInterview} disabled={loading || answer.trim().length < 10}>{loading ? <LoaderCircle className="h-4 w-4 animate-spin"/> : <Sparkles className="h-4 w-4"/>}Get feedback</button></div>}
+    {mode === "interview" && <div className="mt-4 space-y-3"><div><p className="text-xs font-semibold text-slate-600">Choose a practice question</p><div className="mt-2 flex flex-wrap gap-2">{interviewQuestions.map((item) => <button key={item} type="button" onClick={() => { setQuestion(item); setAnswer(""); setResult(null); }} className={`rounded-lg border px-3 py-2 text-left text-xs transition ${question === item ? "border-red-200 bg-red-50 text-red-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>{item}</button>)}</div></div><label className="block text-xs font-semibold text-slate-600">Your question<input className={fieldClass} value={question} onChange={(event) => { setQuestion(event.target.value); setResult(null); }} maxLength={500}/></label><label className="block text-xs font-semibold text-slate-600">Your answer<textarea className={fieldClass} rows={5} value={answer} onChange={(event) => { setAnswer(event.target.value); setResult(null); }} maxLength={3000} placeholder="Type your answer, or use voice input below. Share only experiences that are true for you."/></label><div className="flex flex-wrap items-center gap-2"><button type="button" onClick={toggleDictation} aria-pressed={listening} className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-xs font-semibold transition ${listening ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>{listening ? <MicOff className="h-4 w-4"/> : <Mic className="h-4 w-4"/>}{listening ? "Stop speaking" : "Answer with microphone"}</button><button className={buttonClass} onClick={practiceInterview} disabled={loading || answer.trim().length < 10}>{loading ? <LoaderCircle className="h-4 w-4 animate-spin"/> : <Sparkles className="h-4 w-4"/>}Get AI feedback</button></div>{listening && <p role="status" className="text-xs text-red-700">Listening… speak your answer, then select Stop speaking.</p>}{voiceError && <p role="alert" className="text-xs text-amber-800">{voiceError}</p>}</div>}
 
     {mode === "coach" && <div className="mt-4 space-y-3"><label className="block text-xs font-semibold text-slate-600">What do you need help with?<textarea className={fieldClass} rows={3} value={prompt} onChange={(event) => setPrompt(event.target.value)} maxLength={1200} placeholder="For example: how should I split my time between DSA and project preparation?"/></label><button className={buttonClass} onClick={requestCoach} disabled={loading || prompt.trim().length < 3}>{loading ? <LoaderCircle className="h-4 w-4 animate-spin"/> : <Sparkles className="h-4 w-4"/>}Ask career coach</button></div>}
 
@@ -119,7 +187,7 @@ export function AICareerPanel({ mode, resume, targetRole = "", profile = "", con
     {result && mode === "resume_review" && <FeedbackLists positive={result.strengths as string[]} improvements={result.improvements as string[]} extraTitle="Role keywords to consider" extra={result.roleKeywords as string[]} footer={String(result.caution)}/>}
     {result && mode === "interview" && <FeedbackLists positive={result.strengths as string[]} improvements={result.improvements as string[]} extraTitle="Example answer structure" extra={[String(result.exampleStructure)]} footer={String(result.feedback)}/>}
     {result && mode === "coach" && <FeedbackLists positive={[]} improvements={result.nextSteps as string[]} extraTitle="Guidance" extra={[String(result.answer)]} footer={String(result.caveat)}/>}
-    {result && mode === "study_plan" && <div className="mt-4 space-y-3"><p className="text-xs leading-5 text-slate-600">{String(result.guidance)}</p><div className="grid gap-2 sm:grid-cols-2">{(result.plan as { day: number; focus: string; task: string }[]).map((item) => <article key={item.day} className="rounded-xl border border-slate-200 p-3"><p className="text-[10px] font-bold uppercase text-indigo-700">Day {item.day} · {item.focus}</p><p className="mt-1 text-xs text-slate-700">{item.task}</p></article>)}</div></div>}
+    {result && mode === "study_plan" && <div className="mt-4 space-y-3"><p className="text-xs leading-5 text-slate-600">{String(result.guidance)}</p><div className="grid gap-2 sm:grid-cols-2">{(result.plan as { day: number; focus: string; task: string }[]).map((item) => <article key={item.day} className="rounded-xl border border-slate-200 p-3"><p className="text-[10px] font-bold uppercase text-red-700">Day {item.day} · {item.focus}</p><p className="mt-1 text-xs text-slate-700">{item.task}</p></article>)}</div></div>}
     {result && mode === "tpo" && <div className="mt-4 space-y-3 rounded-xl bg-slate-50 p-4 text-sm"><p className="font-semibold">Summary</p><p>{String(result.analysis)}</p><ul className="list-disc pl-5 text-xs text-slate-700">{(result.suggestions as string[]).map((item, index) => <li key={index}>{item}</li>)}</ul><p className="font-semibold">Draft (review before sending)</p><p className="whitespace-pre-wrap text-xs">{String(result.draft)}</p><p className="text-[10px] text-slate-500">{String(result.caveat)}</p></div>}
   </section>;
 }
@@ -139,8 +207,8 @@ function AssessmentResult({ result, selected, setSelected, gradeResult, onGrade,
   const correctCount = grades?.reduce((total, item, index) => total + (selected[index] === item.correctAnswerIndex ? 1 : 0), 0);
   return <div className="mt-5 space-y-4">
     <h4 className="font-bold text-slate-900">{String(result.title)}</h4>
-    {questions.map((item, index) => <fieldset key={`${index}-${item.question}`} className="rounded-xl border border-slate-200 p-4"><legend className="px-1 text-sm font-semibold text-slate-800"><span className="mr-2 rounded bg-indigo-50 px-2 py-1 text-[10px] text-indigo-700">{item.topic}</span>{item.question}</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{item.choices.map((choice, choiceIndex) => <label key={choiceIndex} className={`cursor-pointer rounded-lg border p-3 text-xs ${selected[index] === choiceIndex ? "border-indigo-300 bg-indigo-50" : "border-slate-200"}`}><input className="sr-only" type="radio" name={`ai-question-${index}`} checked={selected[index] === choiceIndex} disabled={Boolean(grades)} onChange={() => { const next = [...selected]; next[index] = choiceIndex; setSelected(next); }}/>{choice}</label>)}</div>{grades?.[index] && <p className={`mt-3 rounded-lg p-3 text-xs ${selected[index] === grades[index].correctAnswerIndex ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900"}`}>Correct option: {item.choices[grades[index].correctAnswerIndex]}. {grades[index].feedback}</p>}</fieldset>)}
+    {questions.map((item, index) => <fieldset key={`${index}-${item.question}`} className="rounded-xl border border-slate-200 p-4"><legend className="px-1 text-sm font-semibold text-slate-800"><span className="mr-2 rounded bg-red-50 px-2 py-1 text-[10px] text-red-700">{item.topic}</span>{item.question}</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{item.choices.map((choice, choiceIndex) => <label key={choiceIndex} className={`cursor-pointer rounded-lg border p-3 text-xs ${selected[index] === choiceIndex ? "border-red-300 bg-red-50" : "border-slate-200"}`}><input className="sr-only" type="radio" name={`ai-question-${index}`} checked={selected[index] === choiceIndex} disabled={Boolean(grades)} onChange={() => { const next = [...selected]; next[index] = choiceIndex; setSelected(next); }}/>{choice}</label>)}</div>{grades?.[index] && <p className={`mt-3 rounded-lg p-3 text-xs ${selected[index] === grades[index].correctAnswerIndex ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900"}`}>Correct option: {item.choices[grades[index].correctAnswerIndex]}. {grades[index].feedback}</p>}</fieldset>)}
     {!grades && <button onClick={onGrade} disabled={loading} className={buttonClass}>{loading && <LoaderCircle className="h-4 w-4 animate-spin"/>}Submit and review</button>}
-    {grades && <p aria-live="polite" className="rounded-xl bg-indigo-50 p-4 text-sm font-semibold text-indigo-950">Practice result: {correctCount}/{questions.length} correct. {String(gradeResult?.summary ?? "Review the explanations and keep practicing.")}</p>}
+    {grades && <p aria-live="polite" className="rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-950">Practice result: {correctCount}/{questions.length} correct. {String(gradeResult?.summary ?? "Review the explanations and keep practicing.")}</p>}
   </div>;
 }

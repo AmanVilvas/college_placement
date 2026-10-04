@@ -1,5 +1,6 @@
 "use client";
 
+import { DataSkeleton } from "@/components/shared/DataSkeleton";
 import { useMemo, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { useApiResource } from "@/lib/useApi";
@@ -49,11 +50,11 @@ export default function AdminPlacedStudentsPage() {
 
       <label className="relative block w-full sm:w-96"><Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400"/><input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search name, roll, department, or company" className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm"/></label>
 
-      {filtered.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filtered.map(({ student, drive }) => <article key={student.id} className="space-y-3 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+      {loading ? <DataSkeleton label="Loading placement records…" variant="cards" count={6} /> : filtered.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filtered.map(({ student, drive }) => <article key={student.id} className="space-y-3 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
         <div><h3 className="font-bold text-slate-900">{student.full_name || "Name not provided"}</h3><p className="text-xs text-slate-500">{student.roll_number} · {student.department || "Department not provided"}{student.section ? ` · Section ${student.section}` : ""}</p></div>
         <div className="rounded-xl bg-slate-50 p-3 text-xs"><p className="text-slate-500">Company and role</p><p className="mt-1 font-semibold text-slate-900">{drive.companies?.name || "Company"} · {drive.role_title}</p><p className="mt-1 text-emerald-700">{formatPackage(drive.package_lpa, drive.stipend_monthly)}</p></div>
         <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700"><Award className="h-4 w-4"/>Selected / placed in the application tracker</p>
-      </article>)}</div> : <div className="rounded-2xl border border-slate-100 bg-white p-10 text-center text-sm text-slate-500">{loading ? "Loading placement records…" : "No selected or placed application records yet."}</div>}
+      </article>)}</div> : <div className="rounded-2xl border border-slate-100 bg-white p-10 text-center text-sm text-slate-500">No selected or placed application records yet.</div>}
     </div>
   </div>;
 }

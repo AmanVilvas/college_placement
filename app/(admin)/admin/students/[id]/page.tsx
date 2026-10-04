@@ -1,16 +1,18 @@
 "use client";
 
+import { StudentAvatar } from "@/components/shared/StudentAvatar";
+import { DataSkeleton } from "@/components/shared/DataSkeleton";
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
+import { AdminStudentDocuments } from "@/components/admin/AdminStudentDocuments";
 import { Application, ApplicationStatus, PlacementStatus } from "@/lib/types";
-import { formatDate, APPLICATION_JOURNEY, getInitials } from "@/lib/utils";
+import { formatDate, APPLICATION_JOURNEY } from "@/lib/utils";
 import { apiMutate, useApiResource } from "@/lib/useApi";
 import {
-  ArrowLeft, Mail, Phone, GraduationCap, FileText, CheckCircle2,
-  Clock, Award, ChevronRight, Edit3, Check, X, ShieldAlert, Sparkles
+  ArrowLeft, Mail, Phone, CheckCircle2, Edit3, Check, X
 } from "lucide-react";
 import Link from "next/link";
 
@@ -26,12 +28,13 @@ export default function AdminStudentDetailPage() {
   const { data: applicationRows, refetch: refetchApplications } = useApiResource<Array<{
     id: string; student_id: string; drive_id: string; status: string; confirmation_data?: Application["confirmationData"];
     applied_at?: string; updated_at?: string; student_profiles?: { full_name?: string; roll_number?: string; department?: string; section?: string };
-    drives?: { role_title?: string; company_id?: string; companies?: { name?: string; metadata?: { logoColor?: string } } };
-  }>>("applications", { select: "id,student_id,drive_id,status,confirmation_data,applied_at,updated_at,student_profiles(full_name,roll_number,department,section),drives(role_title,company_id,companies(name,metadata))", limit: "1000" }, { fallback: [] });
+    drives?: { role_title?: string; company_id?: string; companies?: { name?: string; logo_url?: string; metadata?: { logoColor?: string } } };
+  }>>("applications", { select: "id,student_id,drive_id,status,confirmation_data,applied_at,updated_at,student_profiles(full_name,roll_number,department,section),drives(role_title,company_id,companies(name,logo_url,metadata))", limit: "1000" }, { fallback: [] });
   const studentRow = studentRows?.[0];
   const student = studentRow ? {
     id: studentRow.id,
     name: studentRow.full_name || "",
+    avatarUrl: typeof studentRow.profile_data?.avatarUrl === "string" ? studentRow.profile_data.avatarUrl : undefined,
     rollNumber: studentRow.roll_number,
     branch: studentRow.department,
     section: studentRow.section || "",
@@ -49,7 +52,7 @@ export default function AdminStudentDetailPage() {
     studentBranch: (row.confirmation_data?.specialization || row.student_profiles?.department || student?.branch || "") as Application["studentBranch"],
     studentSection: row.confirmation_data?.section || row.student_profiles?.section || student?.section || "",
     driveId: row.drive_id, driveName: row.drives?.role_title || "", companyId: row.drives?.company_id || "",
-    companyName: row.drives?.companies?.name || "Company", status: row.status as ApplicationStatus,
+    companyName: row.drives?.companies?.name || "Company", companyLogoUrl: row.drives?.companies?.logo_url, status: row.status as ApplicationStatus,
     appliedAt: row.applied_at, confirmedAt: row.confirmation_data?.confirmedAt || row.updated_at,
     confirmationData: row.confirmation_data, followUpCount: 0, updatedAt: row.updated_at || row.applied_at || "",
   }));
@@ -63,12 +66,12 @@ export default function AdminStudentDetailPage() {
   const [selectedStatus, setSelectedStatus] = useState<ApplicationStatus>("Applied");
   const [statusMessage, setStatusMessage] = useState("");
 
-  if (!student && studentLoading) return <div className="p-8 text-center text-slate-500">Loading student…</div>;
+  if (!student && studentLoading) return <DataSkeleton label="Loading student…" className="p-8" count={4} />;
   if (!student) {
     return (
       <div className="p-8 text-center">
         <p className="text-slate-500">Student not found</p>
-        <Link href="/admin/students" className="text-indigo-600 font-semibold text-sm mt-2 inline-block">
+        <Link href="/admin/students" className="text-red-600 font-semibold text-sm mt-2 inline-block">
           ← Back to Students
         </Link>
       </div>
@@ -96,7 +99,7 @@ export default function AdminStudentDetailPage() {
       <div className="p-6 space-y-6">
         <Link
           href="/admin/students"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-red-600 transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Student Directory
         </Link>
@@ -105,9 +108,7 @@ export default function AdminStudentDetailPage() {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xl font-bold text-white shadow-md flex-shrink-0">
-                {getInitials(student.name)}
-              </div>
+              <StudentAvatar name={student.name} avatarUrl={student.avatarUrl} className="h-16 w-16 text-xl"/>
               <div className="space-y-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <h1 className="text-xl font-bold text-slate-900">{student.name}</h1>
@@ -149,7 +150,7 @@ export default function AdminStudentDetailPage() {
             </div>
             <div>
               <span className="text-slate-400">Total Applications:</span>
-              <p className="text-base font-bold text-indigo-600">{studentApps.length}</p>
+              <p className="text-base font-bold text-red-600">{studentApps.length}</p>
             </div>
             <div>
               <span className="text-slate-400">Applied:</span>
@@ -166,7 +167,9 @@ export default function AdminStudentDetailPage() {
           </div>
         </div>
 
-        {statusMessage && <p role="status" className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">{statusMessage}</p>}
+        <AdminStudentDocuments studentId={studentId}/>
+
+        {statusMessage && <p role="status" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-900">{statusMessage}</p>}
 
         {/* Applications & Placement Journey Tracking Section */}
         <div className="space-y-4">
@@ -196,7 +199,8 @@ export default function AdminStudentDetailPage() {
                       <div className="flex items-center gap-3">
                         <CompanyLogo
                           name={app.companyName}
-                          logoColor="#6366f1"
+                          logoColor="#b91c1c"
+                          logoUrl={app.companyLogoUrl}
                           size="md"
                         />
                         <div>
@@ -221,7 +225,7 @@ export default function AdminStudentDetailPage() {
                       {/* Manual Status Editor */}
                       <div className="flex items-center gap-2 self-end sm:self-center">
                         {isEditing ? (
-                          <div className="flex items-center gap-1.5 bg-indigo-50 p-1.5 rounded-xl border border-indigo-200">
+                          <div className="flex items-center gap-1.5 bg-red-50 p-1.5 rounded-xl border border-red-200">
                             <select
                               value={selectedStatus}
                               onChange={(e) => setSelectedStatus(e.target.value as ApplicationStatus)}
@@ -253,7 +257,7 @@ export default function AdminStudentDetailPage() {
                               setEditingAppId(app.id);
                               setSelectedStatus(app.status);
                             }}
-                            className="text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                            className="text-xs font-semibold text-slate-600 hover:text-red-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
                           >
                             <Edit3 className="w-3.5 h-3.5" /> Update Status
                           </button>
@@ -283,8 +287,8 @@ export default function AdminStudentDetailPage() {
                                     isDone
                                       ? "bg-emerald-500 text-white"
                                       : isCurrent
-                                      ? "bg-indigo-600 text-white ring-4 ring-indigo-100"
-                                      : "bg-slate-200 text-slate-500 group-hover:bg-indigo-200"
+                                      ? "bg-red-600 text-white ring-4 ring-red-100"
+                                      : "bg-slate-200 text-slate-500 group-hover:bg-red-200"
                                   }`}
                                 >
                                   {isDone ? (
@@ -296,10 +300,10 @@ export default function AdminStudentDetailPage() {
                                 <span
                                   className={`text-[10px] mt-1.5 w-16 text-center transition-colors ${
                                     isCurrent
-                                      ? "font-bold text-indigo-700"
+                                      ? "font-bold text-red-700"
                                       : isDone
                                       ? "font-semibold text-emerald-700"
-                                      : "text-slate-400 group-hover:text-indigo-600"
+                                      : "text-slate-400 group-hover:text-red-600"
                                   }`}
                                 >
                                   {step}
@@ -326,7 +330,7 @@ export default function AdminStudentDetailPage() {
                           <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" /> Student Confirmation Submission Details
                         </span>
                         <div className="grid sm:grid-cols-3 gap-2 text-slate-600 pt-1">
-                          <div>Resume: {app.confirmationData.resumeUrl ? <a href={app.confirmationData.resumeUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-700 underline">Open Google Drive link</a> : <strong className="text-slate-800">Not provided</strong>}</div>
+                          <div>Resume: {app.confirmationData.resumeUrl ? <a href={app.confirmationData.resumeUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-red-700 underline">Open Google Drive link</a> : <strong className="text-slate-800">Not provided</strong>}</div>
                           <div>Email: <strong className="text-slate-800">{app.confirmationData.collegeEmail}</strong></div>
                           <div>Phone: <strong className="text-slate-800">{app.confirmationData.phone}</strong></div>
                         </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { StudentAvatar } from "@/components/shared/StudentAvatar";
+import { DataSkeleton } from "@/components/shared/DataSkeleton";
 import { useState, useCallback } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -42,6 +44,7 @@ interface ApiStudentApplication { student_id: string; status: string; }
 /* Normalise API row → display shape */
 function normalise(s: ApiStudentProfile, applications: ApiStudentApplication[] = []): StudentToEdit & {
   userId: string;
+  avatarUrl?: string;
   placementStatus: "Unplaced" | "Placed" | "In Process";
   applications: ApiStudentApplication[];
 } {
@@ -69,6 +72,7 @@ function normalise(s: ApiStudentProfile, applications: ApiStudentApplication[] =
   return {
     id: s.id,
     userId: s.user_id || s.id,
+    avatarUrl: typeof s.profile_data?.avatarUrl === "string" ? s.profile_data.avatarUrl : undefined,
     name: name || "Unknown Student",
     email: email || "—",
     phone: phone || "—",
@@ -183,10 +187,10 @@ export default function AdminStudentsDirectoryPage() {
           <button
             onClick={refetch}
             disabled={loading}
-            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-600 transition-colors p-1.5 rounded-lg hover:bg-slate-100"
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-slate-100"
             title="Refresh database records"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className="w-3.5 h-3.5" />
             <span>Sync</span>
           </button>
         </div>
@@ -236,7 +240,7 @@ export default function AdminStudentsDirectoryPage() {
               onClick={() => setProblemFilter("all")}
               className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
                 problemFilter === "all"
-                  ? "bg-indigo-600 text-white shadow-sm"
+                  ? "bg-red-600 text-white shadow-sm"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
@@ -263,7 +267,7 @@ export default function AdminStudentsDirectoryPage() {
                 placeholder="Search by name, roll number, or email…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30"
               />
             </div>
 
@@ -283,9 +287,9 @@ export default function AdminStudentsDirectoryPage() {
                 onClick={refetch}
                 disabled={loading}
                 title="Refresh"
-                className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-colors disabled:opacity-40"
+                className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:text-red-600 hover:border-red-200 transition-colors disabled:opacity-40"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                <RefreshCw className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -295,10 +299,7 @@ export default function AdminStudentsDirectoryPage() {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             {loading ? (
-              <div className="flex items-center justify-center py-20 text-slate-400">
-                <RefreshCw className="w-5 h-5 animate-spin mr-2" />
-                Loading students…
-              </div>
+              <DataSkeleton label="Loading students…" variant="rows" count={6} />
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                 <UserX className="w-10 h-10 mb-3" />
@@ -311,7 +312,7 @@ export default function AdminStudentsDirectoryPage() {
                   !loading && (
                     <p className="text-sm mt-1">
                       Import students using the{" "}
-                      <button onClick={() => setImportOpen(true)} className="text-indigo-600 font-semibold hover:underline">
+                      <button onClick={() => setImportOpen(true)} className="text-red-600 font-semibold hover:underline">
                         Import button
                       </button>{" "}
                       above.
@@ -345,8 +346,8 @@ export default function AdminStudentsDirectoryPage() {
                       >
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white shadow-sm flex-shrink-0">
-                              {student.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-xs font-bold text-white shadow-sm flex-shrink-0">
+                              <StudentAvatar name={student.name} avatarUrl={student.avatarUrl} className="h-full w-full text-xs"/>
                             </div>
                             <div>
                               <p className="text-sm font-bold text-slate-900">{student.name}</p>
@@ -378,7 +379,7 @@ export default function AdminStudentsDirectoryPage() {
                             return (
                               <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${
                                 val >= 8.5 ? "bg-emerald-50 text-emerald-700"
-                                : val >= 7.0 ? "bg-indigo-50 text-indigo-700"
+                                : val >= 7.0 ? "bg-red-50 text-red-700"
                                 : val > 0 ? "bg-slate-100 text-slate-700"
                                 : "text-slate-400"
                               }`}>
@@ -400,7 +401,7 @@ export default function AdminStudentsDirectoryPage() {
                         </td>
                         <td className="px-5 py-4 text-right">
                           <div className="inline-flex items-center gap-2">
-                            <Link href={`/admin/students/${student.id}`} className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors">
+                            <Link href={`/admin/students/${student.id}`} className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition-colors">
                               View profile
                             </Link>
                             <button

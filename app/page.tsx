@@ -1,466 +1,162 @@
-"use client";
-
-import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import {
-  GraduationCap, Shield, ArrowRight, CheckCircle2,
-  Building2, Users, FileText, Bell, Sparkles, AlertCircle,
-  TrendingUp, ExternalLink, ArrowUpRight, Check, X,
-  Clock, Award, Layers, Zap, ChevronRight, Laptop,
-  CheckCheck, ArrowDownRight, Command, Database,
-  FileSpreadsheet, MessageSquare, BarChart3,
-} from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check } from "lucide-react";
+import { UniversityLogo } from "@/components/shared/UniversityLogo";
+
+const services = [
+  {
+    number: "01",
+    audience: "For students",
+    title: "Find your next opportunity.",
+    description: "Explore active drives, keep track of each application, and know what comes next.",
+    href: "/student/login",
+    action: "Student portal",
+  },
+  {
+    number: "02",
+    audience: "For the placement team",
+    title: "Keep recruitment moving.",
+    description: "Coordinate companies, student applications, interviews, and outcomes in one place.",
+    href: "/admin/login",
+    action: "Staff access",
+  },
+  {
+    number: "03",
+    audience: "For everyone",
+    title: "See placement outcomes.",
+    description: "Explore published placement information and the companies connecting with MM(DU).",
+    href: "/placements",
+    action: "View outcomes",
+  },
+] as const;
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<"apply" | "followup" | "pipeline">("apply");
-
   return (
-    <div className="min-h-screen bg-[#fafafa] text-zinc-900 flex flex-col justify-between selection:bg-zinc-900 selection:text-white font-sans antialiased">
-      {/* 1. Ultra-Clean Navigation Bar (shadcn / 21st.dev style) */}
-      <header className="border-b border-zinc-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-zinc-950 rounded-lg flex items-center justify-center text-white shadow-xs">
-                <GraduationCap className="w-4 h-4" />
-              </div>
-              <span className="font-bold text-sm tracking-tight text-zinc-950">MMDU TNP</span>
-            </Link>
-            <span className="hidden sm:inline-flex text-[11px] font-medium text-zinc-400 border-l border-zinc-200 pl-3">
-              v2.4
-            </span>
-          </div>
-
-          <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-zinc-600">
-            <a href="#how-it-works" className="hover:text-zinc-950 transition-colors">How It Works</a>
-            <a href="#workflow" className="hover:text-zinc-950 transition-colors">The 2-Step Flow</a>
-            <a href="#features" className="hover:text-zinc-950 transition-colors">Features</a>
-            <a href="#comparison" className="hover:text-zinc-950 transition-colors">WhatsApp vs OS</a>
+    <div className="min-h-screen overflow-hidden bg-white text-slate-950 antialiased">
+      <header className="border-b border-slate-200/80 bg-white">
+        <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between gap-5 px-5 sm:px-8">
+          <Link href="/" aria-label="MMDU Placement Cell home" className="shrink-0 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-red-700">
+            <UniversityLogo priority className="h-10 sm:h-11" />
+          </Link>
+          <nav aria-label="Main navigation" className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
+            <a href="#services" className="transition hover:text-red-700">Placement services</a>
+            <a href="#about" className="transition hover:text-red-700">About the cell</a>
+            <Link href="/placements" className="transition hover:text-red-700">Outcomes</Link>
           </nav>
-
-          <div className="flex items-center gap-2">
-            <Link
-              href="/dashboard"
-              className="text-xs font-semibold text-zinc-700 hover:text-zinc-950 px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors"
-            >
-              Student Portal
-            </Link>
-            <Link
-              href="/admin/dashboard"
-              className="text-xs font-semibold bg-zinc-950 hover:bg-zinc-800 text-white px-3.5 py-1.5 rounded-lg transition-colors shadow-xs flex items-center gap-1.5"
-            >
-              <span>Admin Console</span>
-              <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
+          <Link href="/student/login" className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+            Sign in <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
         </div>
       </header>
 
-      {/* 2. Hero Section */}
-      <main className="max-w-6xl mx-auto px-5 sm:px-6 pt-16 pb-20 space-y-20">
-        <div className="text-center space-y-5 max-w-3xl mx-auto">
-          {/* Badge Pill */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-700 text-xs font-medium shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Built for MMDU Placement Cell</span>
-          </div>
-
-          {/* Heading */}
-          <h1 className="text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold tracking-tight text-zinc-950 leading-[1.12]">
-            Stop managing campus placements in <span className="underline decoration-zinc-300 underline-offset-4 decoration-2">WhatsApp</span> & <span className="underline decoration-zinc-300 underline-offset-4 decoration-2">Google Sheets</span>.
-          </h1>
-
-          {/* Subheading */}
-          <p className="text-zinc-600 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-            MMDU TNP is the dedicated operating system for university placement cells. Publish official drives, capture verified student application confirmations, and eliminate manual follow-ups.
-          </p>
-
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
-            <Link
-              href="/dashboard"
-              className="w-full sm:w-auto text-xs font-semibold bg-zinc-950 hover:bg-zinc-800 text-white px-5 py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 group"
-            >
-              <GraduationCap className="w-4 h-4 text-zinc-300" />
-              <span>Enter as Student</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-
-            <Link
-              href="/admin/dashboard"
-              className="w-full sm:w-auto text-xs font-semibold bg-white hover:bg-zinc-50 text-zinc-900 border border-zinc-200 px-5 py-3 rounded-xl transition-all shadow-2xs flex items-center justify-center gap-2"
-            >
-              <Shield className="w-4 h-4 text-zinc-600" />
-              <span>Enter as Placement Officer</span>
-            </Link>
-          </div>
-
-          <div className="flex items-center justify-center gap-6 pt-2 text-[11px] text-zinc-400 font-medium">
-            <span className="flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5 text-emerald-600" /> Zero WhatsApp spam
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5 text-emerald-600" /> Verified student receipts
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5 text-emerald-600" /> One-click CSV export
-            </span>
-          </div>
-        </div>
-
-        {/* 3. Interactive Product Architecture Showcase (Aceternity / 21st.dev Style) */}
-        <div id="how-it-works" className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200 pb-3">
-            <div>
-              <h2 className="text-sm font-bold text-zinc-950 uppercase tracking-wider">Live System Preview</h2>
-              <p className="text-xs text-zinc-500">Explore how the platform handles the complete placement lifecycle</p>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl border border-zinc-200/80 text-xs">
-              <button
-                onClick={() => setActiveTab("apply")}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${activeTab === "apply"
-                    ? "bg-white text-zinc-950 shadow-2xs"
-                    : "text-zinc-600 hover:text-zinc-950"
-                  }`}
-              >
-                1. The 2-Step Apply Flow
-              </button>
-              <button
-                onClick={() => setActiveTab("followup")}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${activeTab === "followup"
-                    ? "bg-white text-zinc-950 shadow-2xs"
-                    : "text-zinc-600 hover:text-zinc-950"
-                  }`}
-              >
-                2. Admin Follow-up Queue
-              </button>
-              <button
-                onClick={() => setActiveTab("pipeline")}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${activeTab === "pipeline"
-                    ? "bg-white text-zinc-950 shadow-2xs"
-                    : "text-zinc-600 hover:text-zinc-950"
-                  }`}
-              >
-                3. Placement Pipeline
-              </button>
-            </div>
-          </div>
-
-          {/* Tab Content 1: The 2-Step Apply & Confirm Flow */}
-          {activeTab === "apply" && (
-            <div className="bg-white border border-zinc-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
-              <div className="grid md:grid-cols-2 gap-6 items-center">
-                <div className="space-y-4">
-                  <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-md uppercase tracking-wider">
-                    Core Value Proposition
-                  </div>
-                  <h3 className="text-xl font-bold text-zinc-950 tracking-tight">
-                    How Students Apply & Confirm Their Participation
-                  </h3>
-                  <p className="text-xs text-zinc-600 leading-relaxed">
-                    Most companies require students to apply on their own portal, careers site, or Google Form. MMDU TNP bridges that gap by decoupling the external application from internal tracking.
-                  </p>
-
-                  <div className="space-y-3 pt-1 text-xs">
-                    <div className="flex items-start gap-3 p-3 bg-zinc-50 rounded-xl border border-zinc-100">
-                      <div className="w-5 h-5 rounded-full bg-zinc-900 text-white font-bold flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5">
-                        1
-                      </div>
-                      <div>
-                        <strong className="text-zinc-900 block">Apply on Official Portal ↗</strong>
-                        <span className="text-zinc-500 text-[11px]">Redirects student to the college Google Form or company ATS.</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3 p-3 bg-zinc-50 rounded-xl border border-zinc-100">
-                      <div className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5">
-                        2
-                      </div>
-                      <div>
-                        <strong className="text-zinc-900 block">I&apos;ve Applied • Confirm Participation</strong>
-                        <span className="text-zinc-500 text-[11px]">Student confirms their Roll No, Branch, Email & Resume receipt.</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Visual Simulation Box */}
-                <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-zinc-200/80">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs">
-                        Co
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-zinc-900">Company drive</p>
-                        <p className="text-[10px] text-zinc-500">Role, package, and eligibility details</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                      Open Drive
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <button className="w-full bg-zinc-900 text-white text-xs font-semibold py-2.5 rounded-lg flex items-center justify-center gap-1.5 shadow-2xs">
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      Apply on Official Portal ↗
-                    </button>
-                    <p className="text-[10px] text-center text-zinc-400">Complete the application on the official site</p>
-
-                    <button className="w-full bg-indigo-600 text-white text-xs font-semibold py-2.5 rounded-lg flex items-center justify-center gap-1.5 shadow-2xs">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      I&apos;ve Applied • Confirm Participation
-                    </button>
-                    <p className="text-[10px] text-center text-zinc-400">Notifies placement cell with zero WhatsApp messages</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Tab Content 2: Follow-up Queue */}
-          {activeTab === "followup" && (
-            <div className="bg-white border border-zinc-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-4">
-              <div className="space-y-1">
-                <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-100 px-2.5 py-0.5 rounded-md uppercase tracking-wider">
-                  Admin Follow-up Command
-                </div>
-                <h3 className="text-xl font-bold text-zinc-950 tracking-tight">
-                  Zero WhatsApp Chaos. Instant Follow-up Queue.
-                </h3>
-                <p className="text-xs text-zinc-600">
-                  Placement officers see in real-time who is eligible but hasn&apos;t confirmed, with one-click follow-up filters by Branch and Section.
-                </p>
-              </div>
-
-              <div className="border border-zinc-200 rounded-xl overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 text-[11px]">
-                    <tr>
-                      <th className="text-left px-4 py-2.5 font-semibold">Student Name</th>
-                      <th className="text-left px-3 py-2.5 font-semibold">Roll No</th>
-                      <th className="text-left px-3 py-2.5 font-semibold">Company</th>
-                      <th className="text-left px-3 py-2.5 font-semibold">Status</th>
-                      <th className="text-right px-4 py-2.5 font-semibold">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100">
-                    <tr><td colSpan={5} className="px-4 py-8 text-center text-zinc-500">Student records appear here after they confirm a campus application.</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Tab Content 3: Placement Pipeline */}
-          {activeTab === "pipeline" && (
-            <div className="bg-white border border-zinc-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-5">
-              <div className="space-y-1">
-                <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-0.5 rounded-md uppercase tracking-wider">
-                  Full Candidate Lifecycle
-                </div>
-                <h3 className="text-xl font-bold text-zinc-950 tracking-tight">
-                  Track Candidates from Eligibility to Verified Placement
-                </h3>
-                <p className="text-xs text-zinc-600">
-                  Every candidate follows a rigorous, transparent progression pipeline synced between students and the placement office.
-                </p>
-              </div>
-
-              {/* Step Sequence */}
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-2">
-                {[
-                  { step: "1. Eligible", desc: "Criteria matched" },
-                  { step: "2. Confirmed", desc: "Receipt verified" },
-                  { step: "3. Shortlisted", desc: "Resume cleared" },
-                  { step: "4. Assessment", desc: "Test round" },
-                  { step: "5. Interview", desc: "Tech & HR" },
-                  { step: "6. Placed 🎉", desc: "Offer received" },
-                ].map((item, idx) => (
-                  <div key={item.step} className="p-3 bg-zinc-50 border border-zinc-200/80 rounded-xl text-center space-y-1">
-                    <p className="text-xs font-bold text-zinc-900">{item.step}</p>
-                    <p className="text-[10px] text-zinc-500">{item.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 4. Comparison Section: Before vs After */}
-        <div id="comparison" className="space-y-6 pt-4">
-          <div className="text-center space-y-1.5">
-            <h2 className="text-2xl font-bold tracking-tight text-zinc-950">Why MMDU should switched to MMDU TNP</h2>
-            <p className="text-xs text-zinc-500">Comparing manual methods with a unified campus TNP</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* The Old Way */}
-            <div className="bg-rose-50/40 border border-rose-200/70 rounded-2xl p-6 space-y-4">
-              <div className="flex items-center gap-2 text-rose-800 font-bold text-sm">
-                <X className="w-4 h-4 text-rose-600" />
-                <span>The Old Way (WhatsApp & Google Sheets)</span>
-              </div>
-              <ul className="space-y-2.5 text-xs text-rose-900/80">
-                <li className="flex items-start gap-2">
-                  <span className="text-rose-500 mt-0.5">✕</span>
-                  <span>Drive links get buried in chaotic WhatsApp group chats with hundreds of unread messages.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-rose-500 mt-0.5">✕</span>
-                  <span>Placement officers manually ask &quot;Who applied?&quot; and build fragile spreadsheets row by row.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-rose-500 mt-0.5">✕</span>
-                  <span>Students miss crucial assessment deadlines due to lack of confirmation tracking.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-rose-500 mt-0.5">✕</span>
-                  <span>No single source of truth for placed students and CTC analytics.</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* The MMDU TNP Way */}
-            <div className="bg-emerald-50/40 border border-emerald-200/70 rounded-2xl p-6 space-y-4">
-              <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
-                <Check className="w-4 h-4 text-emerald-600" />
-                <span>The MMDU TNP Way</span>
-              </div>
-              <ul className="space-y-2.5 text-xs text-emerald-900/90">
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-600 mt-0.5">✓</span>
-                  <span>Official application link paired with instant student participation confirmation.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-600 mt-0.5">✓</span>
-                  <span>Real-time Follow-up Queue showing unconfirmed candidates by Branch and Section.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-600 mt-0.5">✓</span>
-                  <span>Live visual placement pipeline tracking every round from test to offer letter.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-600 mt-0.5">✓</span>
-                  <span>One-click CSV / Excel exports and branch-wise placement conversion metrics.</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* 5. Core Features Bento Grid (21st.dev Style) */}
-        <div id="features" className="space-y-6 pt-4">
-          <div className="text-center space-y-1.5">
-            <h2 className="text-2xl font-bold tracking-tight text-zinc-950">Engineered for Campus Recruitment</h2>
-            <p className="text-xs text-zinc-500">Every module designed to save placement officers hours of repetitive work</p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="bg-white border border-zinc-200/80 rounded-2xl p-5 space-y-2 shadow-2xs">
-              <Building2 className="w-4 h-4 text-zinc-900" />
-              <h3 className="font-bold text-sm text-zinc-900">Company Management</h3>
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                Add partner recruiters, set CGPA thresholds, upload logos, configure CTC, and link official registration portals.
-              </p>
-            </div>
-
-            <div className="bg-white border border-zinc-200/80 rounded-2xl p-5 space-y-2 shadow-2xs">
-              <AlertCircle className="w-4 h-4 text-zinc-900" />
-              <h3 className="font-bold text-sm text-zinc-900">Follow-up Command Center</h3>
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                Filter students who haven&apos;t confirmed before deadlines by Company, Branch, Section, or Status with instant triage actions.
-              </p>
-            </div>
-
-            <div className="bg-white border border-zinc-200/80 rounded-2xl p-5 space-y-2 shadow-2xs">
-              <TrendingUp className="w-4 h-4 text-zinc-900" />
-              <h3 className="font-bold text-sm text-zinc-900">Candidate Pipeline Tracking</h3>
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                Advance candidates through: Eligible → Confirmed → Shortlisted → Assessment → Interview → Placed.
-              </p>
-            </div>
-
-            <div className="bg-white border border-zinc-200/80 rounded-2xl p-5 space-y-2 shadow-2xs">
-              <FileSpreadsheet className="w-4 h-4 text-zinc-900" />
-              <h3 className="font-bold text-sm text-zinc-900">Verified One-Click Exports</h3>
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                Export clean, audit-ready CSV rosters of registered candidates with Roll Numbers, emails, and confirmation timestamps.
-              </p>
-            </div>
-
-            <div className="bg-white border border-zinc-200/80 rounded-2xl p-5 space-y-2 shadow-2xs">
-              <BarChart3 className="w-4 h-4 text-zinc-900" />
-              <h3 className="font-bold text-sm text-zinc-900">Placement Analytics</h3>
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                Real-time branch conversion percentages, average CTC packages, company-wise selections, and funnel drop-off statistics.
-              </p>
-            </div>
-
-            <div className="bg-white border border-zinc-200/80 rounded-2xl p-5 space-y-2 shadow-2xs">
-              <Bell className="w-4 h-4 text-zinc-900" />
-              <h3 className="font-bold text-sm text-zinc-900">Targeted Broadcast Alerts</h3>
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                Dispatch drive announcements, deadline reminders, and interview schedules to specific engineering branches with zero clutter.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* 6. Launch Portal Callout */}
-        <div className="bg-zinc-950 text-white rounded-3xl p-8 sm:p-12 text-center space-y-6 shadow-lg shadow-zinc-950/10">
-          <div className="space-y-2 max-w-xl mx-auto">
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Ready to streamline MMDU placement process?
-            </h2>
-            <p className="text-xs sm:text-sm text-zinc-400">
-              Explore the student experience or launch the placement team administrative console.
+      <main>
+        <section className="mx-auto grid max-w-7xl items-center gap-12 px-5 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16 lg:grid-cols-[0.91fr_1.09fr] lg:gap-14 lg:pb-24 lg:pt-20">
+          <div className="max-w-2xl">
+            <p className="inline-flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.15em] text-red-800">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-700" /> MM(DU) · Mullana, Ambala
             </p>
+            <h1 className="mt-6 text-[clamp(2.8rem,5.4vw,4.75rem)] font-semibold leading-[1.04] tracking-[-0.055em] text-slate-950">
+              Your next chapter starts <span className="text-red-700">here.</span>
+            </h1>
+            <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
+              A clearer path from campus to career. Discover opportunities, follow your applications, and stay connected with the MMDU Placement Cell.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link href="/student/login" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-red-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                Explore student portal <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+              <Link href="/admin/login" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                Placement team access
+              </Link>
+            </div>
+            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-medium text-slate-500">
+              <span className="inline-flex items-center gap-2"><Check className="h-4 w-4 text-red-700" aria-hidden="true" /> Drives and applications</span>
+              <span className="inline-flex items-center gap-2"><Check className="h-4 w-4 text-red-700" aria-hidden="true" /> Updates from your placement team</span>
+            </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <Link
-              href="/dashboard"
-              className="w-full sm:w-auto bg-white text-zinc-950 hover:bg-zinc-100 font-semibold px-6 py-3 rounded-xl text-xs transition-colors shadow-xs"
-            >
-              Open Student Portal →
-            </Link>
-            <Link
-              href="/admin/dashboard"
-              className="w-full sm:w-auto bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 font-semibold px-6 py-3 rounded-xl text-xs transition-colors shadow-xs"
-            >
-              Open Placement Team Admin →
+          <div className="relative mx-auto w-full max-w-[660px] lg:ml-auto">
+            <div className="relative aspect-[1.12/1] overflow-hidden rounded-[1.6rem] bg-slate-100 shadow-[0_30px_80px_-38px_rgba(15,23,42,0.38)] sm:rounded-[2rem]">
+              <Image
+                src="/mmdu-campus-hero.webp"
+                alt="The entrance to Maharishi Markandeshwar (Deemed to be University), Mullana"
+                fill
+                priority
+                sizes="(max-width: 1024px) 100vw, 55vw"
+                className="object-cover object-[center_68%]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-slate-950/5" />
+              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 text-white sm:p-7">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/75">MMDU Placement Cell</p>
+                  <p className="mt-1.5 text-lg font-semibold tracking-tight sm:text-xl">Opportunity begins on campus.</p>
+                </div>
+                <span className="hidden rounded-full border border-white/35 bg-white/10 px-3 py-1.5 text-xs font-medium backdrop-blur sm:inline-flex">Mullana · Ambala</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="services" className="scroll-mt-8 border-y border-slate-200/80 bg-[#fafafa]">
+          <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+            <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+              <div className="max-w-2xl">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-700">A better-connected placement experience</p>
+                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl">The right support, at every step.</h2>
+              </div>
+              <p className="max-w-sm text-sm leading-6 text-slate-600">Purpose-built tools for the people who make campus recruitment happen.</p>
+            </div>
+
+            <div className="mt-9 grid gap-4 md:grid-cols-3">
+              {services.map((service) => (
+                <Link key={service.number} href={service.href} className="group flex min-h-[230px] flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_2px_8px_-6px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:border-red-200 hover:shadow-[0_16px_32px_-22px_rgba(127,29,29,0.25)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 sm:p-7">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold tabular-nums tracking-[0.12em] text-red-700">{service.number}</span>
+                    <ArrowUpRight className="h-4 w-4 text-slate-400 transition group-hover:text-red-700" aria-hidden="true" />
+                  </div>
+                  <p className="mt-7 text-xs font-semibold text-slate-500">{service.audience}</p>
+                  <h3 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-950">{service.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{service.description}</p>
+                  <span className="mt-auto pt-6 text-sm font-semibold text-red-700">{service.action}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="about" className="mx-auto grid max-w-7xl items-center gap-10 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[1.02fr_0.98fr] lg:gap-16 lg:py-24">
+          <div className="relative overflow-hidden rounded-[1.5rem] bg-slate-100">
+            <div className="relative aspect-[1.35/1]">
+              <Image
+                src="/mmdu-placement-community.webp"
+                alt="Students and faculty gathered at an MM(DU) campus event"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
+              />
+            </div>
+            <p className="absolute bottom-4 left-4 rounded-full border border-white/60 bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm backdrop-blur">A community moving forward together</p>
+          </div>
+          <div className="max-w-xl">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-700">MMDU Placement Cell</p>
+            <h2 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.04em] text-slate-950 sm:text-4xl">Connecting ambition with opportunity.</h2>
+            <p className="mt-5 text-base leading-7 text-slate-600">
+              From the first employer conversation to the next interview update, the Placement Cell helps bring students, recruiters, and campus teams together.
+            </p>
+            <Link href="/placements" className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-red-700 transition hover:text-red-800">
+              Explore placement outcomes <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
-        </div>
+        </section>
       </main>
 
-      {/* 7. Footer */}
-      <footer className="border-t border-zinc-200/80 bg-white py-8 text-xs text-zinc-500">
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-zinc-950 rounded flex items-center justify-center text-white text-[10px] font-bold">
-              P
-            </div>
-            <span className="font-bold text-zinc-900">MMDU TNP</span>
-            <span>• Placement Management System</span>
-          </div>
-
-          <div className="flex items-center gap-4 text-[11px] text-zinc-400">
-            <span>Next.js</span>
-            <span>•</span>
-            <span>TypeScript</span>
-            <span>•</span>
-            <span>Tailwind CSS</span>
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Student and company records from the database
-            </span>
-          </div>
+      <footer className="border-t border-slate-200 bg-[#fafafa]">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+          <Link href="/" aria-label="MMDU Placement Cell home" className="inline-flex w-fit rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-red-700">
+            <UniversityLogo className="h-9" />
+          </Link>
+          <p className="text-xs text-slate-500">© MM(DU) Mullana · MMDU Placement Cell</p>
+          <Link href="/placements" className="text-xs font-semibold text-slate-600 transition hover:text-red-700">Placement outcomes</Link>
         </div>
       </footer>
     </div>

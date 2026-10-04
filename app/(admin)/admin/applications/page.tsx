@@ -1,5 +1,6 @@
 "use client";
 
+import { DataSkeleton } from "@/components/shared/DataSkeleton";
 import { useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -130,7 +131,7 @@ export default function AdminApplicationsPage() {
       />
 
       <div className="p-6 space-y-6">
-        {statusMessage && <p role="status" className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">{statusMessage}</p>}
+        {statusMessage && <p role="status" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-900">{statusMessage}</p>}
         {error && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Could not load placement applications: {error}</p>}
         {/* Filters and Search Bar */}
         <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm space-y-3">
@@ -142,7 +143,7 @@ export default function AdminApplicationsPage() {
                 placeholder="Search candidate name, roll number, or company..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30"
               />
             </div>
 
@@ -189,14 +190,14 @@ export default function AdminApplicationsPage() {
             <span>{loading ? "Loading applications…" : <>Showing <strong>{filtered.length}</strong> applications</>}</span>
             <button
               onClick={handleExportCSV}
-              className="text-indigo-600 font-semibold hover:underline flex items-center gap-1"
+              className="text-red-600 font-semibold hover:underline flex items-center gap-1"
             >
               <Download className="w-3.5 h-3.5" /> Download Spreadsheet
             </button>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full">
+            {loading ? <DataSkeleton label="Loading applications…" variant="rows" count={6} /> : <table className="w-full">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-100">
                   <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3.5">Candidate</th>
@@ -229,7 +230,7 @@ export default function AdminApplicationsPage() {
                           <p className="text-[10px] text-slate-500 mt-1">
                             {[app.confirmationData?.classYear, app.confirmationData?.degree, app.confirmationData?.specialization].filter(Boolean).join(" · ")}
                           </p>
-                          {app.confirmationData?.resumeUrl && <a href={app.confirmationData.resumeUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[10px] font-semibold text-indigo-700 underline">Open resume link</a>}
+                          {app.confirmationData?.resumeUrl && <a href={app.confirmationData.resumeUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[10px] font-semibold text-red-700 underline">Open resume link</a>}
                         </div>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
@@ -255,7 +256,7 @@ export default function AdminApplicationsPage() {
                         </select>
                         <Link
                           href={`/admin/students/${app.studentId}`}
-                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="View Student Profile"
                         >
                           <Eye className="w-4 h-4" />
@@ -265,7 +266,7 @@ export default function AdminApplicationsPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table>}
           </div>
         </div>
       </div>
