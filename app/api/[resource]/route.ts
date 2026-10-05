@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiError, ApiError, currentProfile, databaseRequest, developmentDatabaseQuery } from "@/lib/server/supabase";
+import { deliverBatch } from "@/lib/server/message-delivery";
 
 const tables = new Set([
   "institutions", "campuses", "profiles", "student_profiles", "companies", "recruiter_contacts",
@@ -224,13 +225,21 @@ export async function GET(request: Request, context: { params: Promise<{ resourc
     if (localPreview && table === "companies") {
       const limit = Number(incoming.get("limit") ?? 100);
       const offset = Number(incoming.get("offset") ?? 0);
+      const companyId = incoming.get("id")?.startsWith("eq.") ? incoming.get("id")!.slice(3) : null;
       const archivedFilter = incoming.get("archived");
       const archived = archivedFilter === "eq.true" ? true : archivedFilter === "eq.false" ? false : null;
-      const rows = await developmentDatabaseQuery(
+      const rows = await developmentDatabaseQuery<{
+        id: string; role_title: string; job_type: string; description: string | null; location: string | null;
+        work_mode: string | null; package_lpa: number | null; stipend_monthly: number | null; openings: number;
+        application_deadline: string | null; drive_date: string | null; status: string; official_apply_link: string | null;
+        eligibility: Record<string, unknown> | null; required_skills: string[];
+      }>(
         `select * from public.companies
-         where institution_id = $1 and campus_id = $2 and ($3::boolean is null or archived = $3)
-         order by created_at desc limit $4 offset $5`,
-        [profile.institution_id, profile.campus_id, archived, limit, offset],
+         where institution_id = $1 and campus_id = $2
+           and ($3::uuid is null or id = $3::uuid)
+           and ($4::boolean is null or archived = $4)
+         order by created_at desc limit $5 offset $6`,
+        [profile.institution_id, profile.campus_id, companyId, archived, limit, offset],
       );
       return Response.json({ data: rows });
     }
@@ -238,22 +247,34 @@ export async function GET(request: Request, context: { params: Promise<{ resourc
     if (localPreview && table === "drives" && incoming.get("select") === "id,company_id,status") {
       const limit = Number(incoming.get("limit") ?? 100);
       const offset = Number(incoming.get("offset") ?? 0);
+      const companyId = incoming.get("company_id")?.startsWith("eq.") ? incoming.get("company_id")!.slice(3) : null;
+      const status = incoming.get("status")?.startsWith("eq.") ? incoming.get("status")!.slice(3) : null;
       const rows = await developmentDatabaseQuery(
-        `select id, company_id, status from public.drives
-         where institution_id = $1 and campus_id = $2
-         order by created_at desc limit $3 offset $4`,
-        [profile.institution_id, profile.campus_id, limit, offset],
+        `select d.id, d.company_id, d.status from public.drives d
+         join public.companies c on c.id = d.company_id
+         where d.institution_id = $1 and d.campus_id = $2 and c.archived = false
+           and ($3::uuid is null or d.company_id = $3::uuid)
+           and ($4::text is null or d.status = $4)
+         order by d.created_at desc limit $5 offset $6`,
+        [profile.institution_id, profile.campus_id, companyId, status, limit, offset],
       );
       return Response.json({ data: rows });
     }
 
     if (localPreview && table === "drives") {
+      const driveId = incoming.get("id")?.startsWith("eq.") ? incoming.get("id")!.slice(3) : null;
+      const companyId = incoming.get("company_id")?.startsWith("eq.") ? incoming.get("company_id")!.slice(3) : null;
+      const status = incoming.get("status")?.startsWith("eq.") ? incoming.get("status")!.slice(3) : null;
       const rows = await developmentDatabaseQuery(
         `select d.*, jsonb_build_object('name', c.name, 'logo_url', c.logo_url, 'metadata', c.metadata) as companies
          from public.drives d join public.companies c on c.id = d.company_id
-         where d.institution_id = $1 and d.campus_id = $2
-         order by d.created_at desc limit $3 offset $4`,
-        [profile.institution_id, profile.campus_id, Number(incoming.get("limit") ?? 100), Number(incoming.get("offset") ?? 0)],
+         where d.institution_id = $1 and d.campus_id = $2 and c.archived = false
+           and ($3::uuid is null or d.id = $3::uuid)
+           and ($4::uuid is null or d.company_id = $4::uuid)
+           and ($5::text is null or d.status = $5)
+         order by d.created_at desc limit $6 offset $7`,
+        [profile.institution_id, profile.campus_id, driveId, companyId, status,
+          Number(incoming.get("limit") ?? 100), Number(incoming.get("offset") ?? 0)],
       );
       return Response.json({ data: rows });
     }
@@ -525,8 +546,8 @@ export async function POST(request: Request, context: { params: Promise<{ resour
       const stipendMonthly = input.stipend_monthly == null ? null : Number(input.stipend_monthly);
       if (packageLpa !== null && (!Number.isFinite(packageLpa) || packageLpa < 0)) throw new ApiError(400, "Package must be a valid non-negative amount.");
       if (stipendMonthly !== null && (!Number.isFinite(stipendMonthly) || stipendMonthly < 0)) throw new ApiError(400, "Stipend must be a valid non-negative amount.");
-      const companiesForCampus = await developmentDatabaseQuery<{ id: string }>(
-        "select id from public.companies where id = $1 and institution_id = $2 and campus_id = $3 and archived = false limit 1",
+      const companiesForCampus = await developmentDatabaseQuery<{ id: string; name: string }>(
+        "select id, name from public.companies where id = $1 and institution_id = $2 and campus_id = $3 and archived = false limit 1",
         [companyId, profile.institution_id, profile.campus_id],
       );
       if (!companiesForCampus[0]) throw new ApiError(404, "Company not found for this campus.");
@@ -536,7 +557,12 @@ export async function POST(request: Request, context: { params: Promise<{ resour
       if (!["Open", "Closing Soon", "Closed", "Completed"].includes(status)) throw new ApiError(400, "Choose a valid drive status.");
       const eligibility = input.eligibility && typeof input.eligibility === "object" ? JSON.stringify(input.eligibility) : "{}";
       const skills = Array.isArray(input.required_skills) ? input.required_skills.filter((value): value is string => typeof value === "string") : [];
-      const rows = await developmentDatabaseQuery(
+      const rows = await developmentDatabaseQuery<{
+        id: string; role_title: string; job_type: string; description: string | null; location: string | null;
+        work_mode: string | null; package_lpa: number | null; stipend_monthly: number | null; openings: number;
+        application_deadline: string | null; drive_date: string | null; status: string; official_apply_link: string | null;
+        eligibility: Record<string, unknown> | null; required_skills: string[];
+      }>(
         `insert into public.drives (institution_id, campus_id, company_id, role_title, job_type, description, location,
            work_mode, package_lpa, stipend_monthly, openings, application_deadline, drive_date, status,
            official_apply_link, eligibility, required_skills)
@@ -551,7 +577,72 @@ export async function POST(request: Request, context: { params: Promise<{ resour
           typeof input.official_apply_link === "string" ? input.official_apply_link : null,
           eligibility, skills],
       );
-      return Response.json({ data: rows }, { status: 201 });
+      const createdDrive = rows[0];
+      if (!createdDrive) throw new ApiError(500, "Placement drive was not returned after creation.");
+
+      // A company can have several roles with different eligibility rules, so notify students
+      // when its role/drive is created, when all details needed to evaluate eligibility exist.
+      let eligibleCount = 0;
+      let emailSent = 0;
+      let emailFailures = 0;
+      if (["Open", "Closing Soon"].includes(createdDrive.status)) {
+        const rules = createdDrive.eligibility ?? {};
+        const rawBranches = Array.isArray(rules.branches) ? rules.branches : [];
+        const branches = rawBranches.filter((branch): branch is string => typeof branch === "string" && branch.trim().length > 0).map((branch) => branch.trim());
+        const minCGPA = rules.minCGPA == null || rules.minCGPA === "" ? null : Number(rules.minCGPA);
+        const maxBacklogs = rules.maxBacklogs == null || rules.maxBacklogs === "" ? null : Number(rules.maxBacklogs);
+        const students = await developmentDatabaseQuery<{
+          id: string; user_id: string | null; full_name: string; email: string | null;
+        }>(
+          `select s.id, s.user_id, s.full_name, coalesce(nullif(s.email, ''), p.email) as email
+             from public.student_profiles s
+             left join public.profiles p on p.id = s.user_id
+            where s.institution_id = $1 and s.campus_id = $2
+              and (cardinality($3::text[]) = 0 or upper(trim(s.department)) = any($3::text[]))
+              and ($4::numeric is null or s.cgpa >= $4)
+              and ($5::integer is null or s.backlogs <= $5)
+            order by s.full_name`,
+          [profile.institution_id, profile.campus_id, branches.map((branch) => branch.toUpperCase()),
+            minCGPA !== null && Number.isFinite(minCGPA) ? minCGPA : null,
+            maxBacklogs !== null && Number.isInteger(maxBacklogs) && maxBacklogs >= 0 ? maxBacklogs : null],
+        );
+        eligibleCount = students.length;
+        const company = companiesForCampus[0];
+        const studentMessage = `${company.name} is coming to campus for ${createdDrive.role_title}.\n\n` +
+          `Role: ${createdDrive.role_title}\nCompany: ${company.name}\nJob type: ${createdDrive.job_type}\n` +
+          `Package: ${createdDrive.package_lpa == null ? "Not specified" : `${createdDrive.package_lpa} LPA`}\n` +
+          `Stipend: ${createdDrive.stipend_monthly == null ? "Not specified" : `₹${createdDrive.stipend_monthly}/month`}\n` +
+          `Location: ${createdDrive.location || "Not specified"}${createdDrive.work_mode ? ` (${createdDrive.work_mode})` : ""}\n` +
+          `Openings: ${createdDrive.openings}\n` +
+          `Application deadline: ${createdDrive.application_deadline ? new Date(createdDrive.application_deadline).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "Not specified"}\n` +
+          `Drive date: ${createdDrive.drive_date ? new Date(createdDrive.drive_date).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "To be announced"}\n` +
+          `Eligible branches: ${branches.length ? branches.join(", ") : "All branches"}\n` +
+          `Minimum CGPA: ${minCGPA !== null && Number.isFinite(minCGPA) ? minCGPA : "Not specified"}\n` +
+          `Maximum active backlogs: ${maxBacklogs !== null && Number.isInteger(maxBacklogs) ? maxBacklogs : "Not specified"}\n` +
+          `Required skills: ${createdDrive.required_skills?.length ? createdDrive.required_skills.join(", ") : "Not specified"}\n\n` +
+          `${createdDrive.description ? `About the role:\n${createdDrive.description}\n\n` : ""}` +
+          `${createdDrive.official_apply_link ? `Official application link: ${createdDrive.official_apply_link}\n` : ""}` +
+          `View the drive and confirm your participation: ${new URL(`/companies?drive=${createdDrive.id}`, request.url).toString()}`;
+        const title = `New placement drive: ${company.name} — ${createdDrive.role_title}`;
+        if (students.length) {
+          await developmentDatabaseQuery(
+            `insert into public.notifications (institution_id, campus_id, user_id, student_id, title, message, category, metadata)
+             select $1, $2, r.user_id, r.student_id, $3, $4, 'Placement', $5::jsonb
+               from jsonb_to_recordset($6::jsonb) as r(student_id uuid, user_id uuid)`,
+            [profile.institution_id, profile.campus_id, title,
+              `A new ${createdDrive.role_title} opportunity from ${company.name} is open. Check the details and deadline.`,
+              JSON.stringify({ drive_id: createdDrive.id, company_id: companyId }),
+              JSON.stringify(students.map((student) => ({ student_id: student.id, user_id: student.user_id })))],
+          );
+          const delivery = await deliverBatch(
+            students.filter((student) => Boolean(student.email)).map((student) => ({ name: student.full_name, email: student.email })),
+            { email: true, whatsapp: false }, title, studentMessage,
+          );
+          emailSent = delivery.emailSent;
+          emailFailures = delivery.failures.length + students.filter((student) => !student.email).length;
+        }
+      }
+      return Response.json({ data: rows, eligibleCount, emailSent, emailFailures }, { status: 201 });
     }
 
     const { body } = await databaseRequest(table, {

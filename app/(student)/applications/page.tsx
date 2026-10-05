@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState, type CSSProperties } from "react";
 import { StudentHeader } from "@/components/student/StudentHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { CompanyLogo } from "@/components/shared/CompanyLogo";
@@ -7,7 +8,7 @@ import { formatDate, APPLICATION_JOURNEY } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { useApiResource } from "@/lib/useApi";
 import type { Application } from "@/lib/types";
-import { CheckCircle, Circle, FileText } from "lucide-react";
+import { CheckCircle, Circle, FileText, PartyPopper } from "lucide-react";
 import Link from "next/link";
 
 interface ApiApplication {
@@ -51,11 +52,22 @@ export default function MyApplicationsPage() {
     };
   });
   const myApps = databaseApps;
+  const placedApplications = myApps.filter((application) => application.status === "Placed");
+  const [showConfetti, setShowConfetti] = useState(false);
+  const placedApplicationKey = placedApplications.map((application) => application.id).sort().join(",");
+
+  useEffect(() => {
+    if (!placedApplicationKey) return;
+    setShowConfetti(true);
+    const timeout = window.setTimeout(() => setShowConfetti(false), 4200);
+    return () => window.clearTimeout(timeout);
+  }, [placedApplicationKey]);
 
   const statusGroups = {
     active: myApps.filter((a) => !["Placed", "Rejected", "Not Responded"].includes(a.status)),
     notResponded: myApps.filter((a) => a.status === "Not Responded"),
-    completed: myApps.filter((a) => ["Placed", "Rejected"].includes(a.status)),
+    placed: placedApplications,
+    completed: myApps.filter((a) => a.status === "Rejected"),
   };
 
   return (
@@ -63,6 +75,24 @@ export default function MyApplicationsPage() {
       <StudentHeader title="My Applications" subtitle="Track your placement journey for each company" />
       <div className="p-6 space-y-6">
         {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">Could not load applications from the placement database: {error}</p>}
+
+        {showConfetti && (
+          <div aria-hidden="true" className="placement-confetti-layer">
+            {Array.from({ length: 42 }, (_, index) => (
+              <span
+                key={index}
+                className="placement-confetti-piece"
+                style={{
+                  left: `${(index * 43) % 100}%`,
+                  backgroundColor: ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#a855f7"][index % 5],
+                  animationDelay: `${(index % 12) * 55}ms`,
+                  animationDuration: `${2.5 + (index % 4) * 0.2}s`,
+                  "--confetti-drift": `${((index * 17) % 90) - 45}px`,
+                } as CSSProperties}
+              />
+            ))}
+          </div>
+        )}
 
         {myApps.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center py-24 text-center">
@@ -82,6 +112,35 @@ export default function MyApplicationsPage() {
           </div>
         ) : (
           <>
+            {statusGroups.placed.length > 0 && (
+              <section className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-5 shadow-sm">
+                <div className="relative z-10">
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                      <PartyPopper className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-bold text-emerald-900">Congratulations on your placement!</h2>
+                      <p className="text-xs text-emerald-800">Your placement office has marked this application as placed.</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {statusGroups.placed.map((app) => (
+                      <article key={app.id} className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-white/90 p-3">
+                        <CompanyLogo name={app.companyName} logoColor="#059669" logoUrl={app.companyLogoUrl} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-slate-900">{app.companyName}</p>
+                          <p className="truncate text-xs text-slate-600">{app.driveName}</p>
+                          {app.updatedAt && <p className="mt-0.5 text-[10px] text-slate-400">Updated {formatDate(app.updatedAt)}</p>}
+                        </div>
+                        <StatusBadge status={app.status} />
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            )}
+
             {/* Active Applications */}
             {statusGroups.active.length > 0 && (
               <div>

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError, ApiError, currentProfile, developmentDatabaseQuery } from "@/lib/server/supabase";
-import { deliverBatch } from "@/lib/server/message-delivery";
+import { deliverBatch, sendEmail } from "@/lib/server/message-delivery";
 
 export const runtime = "nodejs";
 
@@ -93,7 +93,43 @@ export async function POST(request: Request) {
         [input.status, input.applicationId, profile.institution_id, profile.campus_id],
       );
       if (!rows[0]) throw new ApiError(409, "No status change was made. Check that this application belongs to your campus and choose a different status.");
-      return Response.json({ data: { applicationId: rows[0].id, status: rows[0].status, notificationId: rows[0].notification_id, notified: true } });
+      const recipients = await developmentDatabaseQuery<{
+        student_name: string; email: string | null; company_name: string; role_title: string;
+      }>(
+        `select s.full_name as student_name, coalesce(nullif(s.email, ''), p.email) as email,
+                c.name as company_name, d.role_title
+         from public.applications a
+         join public.student_profiles s on s.id=a.student_id
+         left join public.profiles p on p.id=s.user_id
+         join public.drives d on d.id=a.drive_id
+         join public.companies c on c.id=d.company_id
+         where a.id=$1 and a.institution_id=$2 and a.campus_id=$3 limit 1`,
+        [input.applicationId, profile.institution_id, profile.campus_id],
+      );
+      const recipient = recipients[0];
+      let emailSent = false;
+      let emailError: string | undefined;
+      if (recipient?.email) {
+        const subject = input.status === "Placed"
+          ? `Congratulations on your placement at ${recipient.company_name}`
+          : `Application update: ${recipient.company_name} — ${input.status}`;
+        const greeting = recipient.student_name ? `Hello ${recipient.student_name},` : "Hello,";
+        const message = input.status === "Placed"
+          ? `${greeting}\n\nCongratulations! The placement office has marked your application for ${recipient.company_name} — ${recipient.role_title} as Placed.\n\nYou can view this update in My Applications in the student portal.\n\nPlacement Office`
+          : `${greeting}\n\nThe placement office has updated your application for ${recipient.company_name} — ${recipient.role_title} to ${input.status}.\n\nYou can view this update in My Applications in the student portal. Contact the placement office if you need more information.\n\nPlacement Office`;
+        try {
+          await sendEmail(recipient.email, subject, message);
+          emailSent = true;
+        } catch (error) {
+          emailError = error instanceof Error ? error.message : "Email delivery failed.";
+        }
+      } else {
+        emailError = "No email address is saved for this student.";
+      }
+      return Response.json({ data: {
+        applicationId: rows[0].id, status: rows[0].status, notificationId: rows[0].notification_id,
+        notified: true, emailSent, emailError,
+      } });
     }
 
     if (input.action === "broadcast") {

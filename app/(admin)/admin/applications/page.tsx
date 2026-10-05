@@ -75,9 +75,13 @@ export default function AdminApplicationsPage() {
     setStatusMessage("");
     setStatusError(false);
     try {
-      await apiMutate("POST", "notifications", { action: "application_status", applicationId: appId, status: newStatus });
+      const result = await apiMutate<{ emailSent: boolean; emailError?: string }>("POST", "notifications", {
+        action: "application_status", applicationId: appId, status: newStatus,
+      });
       await refetch();
-      setStatusMessage(`Application marked ${newStatus}. The student was notified in their Notifications page.`);
+      setStatusMessage(result.emailSent
+        ? `Application marked ${newStatus}. In-app notification and email sent to the student.`
+        : `Application marked ${newStatus}. In-app notification recorded, but email was not sent: ${result.emailError || "delivery failed"}`);
     } catch (error) {
       setStatusError(true);
       setStatusMessage(error instanceof Error ? error.message : "Could not update application status.");

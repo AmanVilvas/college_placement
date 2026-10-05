@@ -8,6 +8,7 @@ import { ConfirmParticipationDialog } from "@/components/shared/ConfirmParticipa
 import type { ConfirmationFormData } from "@/components/shared/ConfirmParticipationDialog";
 import { useApiResource } from "@/lib/useApi";
 import { apiMutate } from "@/lib/useApi";
+import { isDriveAcceptingApplications } from "@/lib/driveRegistration";
 import type { Drive } from "@/lib/types";
 import {
   Building2, ExternalLink, Search, RefreshCw,
@@ -61,8 +62,8 @@ interface ApiDrive {
 }
 
 interface ApiApplication {
+  drive_id: string;
   status: string;
-  drives?: { company_id?: string };
 }
 
 function asDrive(company: ApiCompany, row?: ApiDrive): Drive {
@@ -114,12 +115,16 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
 }
 
 function CompanyCard({
-  company, drive, confirmed, isExpanded, onToggle, onConfirmed,
-}: { company: ApiCompany; drive?: ApiDrive; confirmed: boolean; isExpanded: boolean; onToggle: () => void; onConfirmed: () => void }) {
+  company, drives, appliedDriveIds, isExpanded, onToggle, onConfirmed,
+}: { company: ApiCompany; drives: ApiDrive[]; appliedDriveIds: Set<string>; isExpanded: boolean; onToggle: () => void; onConfirmed: () => void }) {
   const meta = company.metadata ?? {};
   const logoColor = meta.logoColor ?? "#b91c1c";
   const [showConfirm, setShowConfirm] = useState(false);
-  const formDrive = asDrive(company, drive);
+  const openDrives = drives.filter((row) => isDriveAcceptingApplications(asDrive(company, row)));
+  const [selectedDriveId, setSelectedDriveId] = useState(openDrives.length === 1 ? openDrives[0].id : "");
+  const selectedDrive = openDrives.find((row) => row.id === selectedDriveId) ?? (openDrives.length === 1 ? openDrives[0] : undefined);
+  const formDrive = selectedDrive ? asDrive(company, selectedDrive) : undefined;
+  const alreadyApplied = Boolean(selectedDrive && appliedDriveIds.has(selectedDrive.id));
   const hasDetails = !!(meta.position || meta.qualification || meta.stipend ||
     meta.ctc || meta.location || meta.spoc || meta.trainer_details);
   const extraKeys = meta.extra_fields ? Object.keys(meta.extra_fields) : [];
@@ -172,6 +177,27 @@ function CompanyCard({
         )}
       </div>
 
+      {openDrives.length > 1 && (
+        <div className="px-5 pb-3">
+          <label className="mb-1.5 block text-[11px] font-semibold text-slate-600" htmlFor={`role-${company.id}`}>
+            Choose an open role
+          </label>
+          <select
+            id={`role-${company.id}`}
+            value={selectedDriveId}
+            onChange={(event) => setSelectedDriveId(event.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 focus:border-red-300 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+          >
+            <option value="">Select the role you want to apply for</option>
+            {openDrives.map((row) => (
+              <option key={row.id} value={row.id}>
+                {row.role_title}{appliedDriveIds.has(row.id) ? " · Already applied" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-2 px-5 pb-4">
         {company.website ? (
           <a href={company.website} target="_blank" rel="noopener noreferrer"
@@ -181,13 +207,17 @@ function CompanyCard({
         ) : (
           <span className="min-h-10 rounded-xl border border-slate-100 px-2 py-2 text-xs text-slate-400 flex items-center justify-center">No official site</span>
         )}
-        {confirmed ? (
+        {!openDrives.length ? (
+          <span className="min-h-10 rounded-xl bg-slate-100 px-2 py-2 text-xs font-semibold text-slate-500 flex items-center justify-center text-center">
+            No open roles
+          </span>
+        ) : alreadyApplied ? (
           <span className="min-h-10 rounded-xl bg-emerald-50 px-2 py-2 text-xs font-semibold text-emerald-700 flex items-center justify-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5" /> Applied
           </span>
         ) : (
-          <button onClick={() => setShowConfirm(true)}
-            className="min-h-10 rounded-xl bg-red-600 px-2 py-2 text-xs font-semibold text-white hover:bg-red-700 flex items-center justify-center gap-1.5 transition-colors">
+          <button onClick={() => setShowConfirm(true)} disabled={!selectedDrive}
+            className="min-h-10 rounded-xl bg-red-600 px-2 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300 flex items-center justify-center gap-1.5 transition-colors">
             <CheckCircle2 className="w-3.5 h-3.5" /> Confirm Application
           </button>
         )}
@@ -216,17 +246,19 @@ function CompanyCard({
           )}
         </div>
       )}
-      <ConfirmParticipationDialog
-        drive={formDrive}
-        isOpen={showConfirm}
-        onClose={() => setShowConfirm(false)}
-        initialData={{ confirmed: false }}
-        onConfirm={async (data: ConfirmationFormData) => {
-          await apiMutate("POST", "applications", { company_id: company.id, confirmation_data: data });
-          onConfirmed();
-          return true;
-        }}
-      />
+      {formDrive && (
+        <ConfirmParticipationDialog
+          drive={formDrive}
+          isOpen={showConfirm}
+          onClose={() => setShowConfirm(false)}
+          initialData={{ confirmed: false }}
+          onConfirm={async (data: ConfirmationFormData) => {
+            await apiMutate("POST", "applications", { drive_id: formDrive.id, confirmation_data: data });
+            onConfirmed();
+            return true;
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -254,14 +286,16 @@ export default function StudentCompaniesPage() {
     limit: "1000",
   }, { fallback: [] });
   const { data: applications, refetch: refetchApplications } = useApiResource<ApiApplication[]>("applications", {
-    select: "id,status,drives(company_id)",
+    select: "id,drive_id,status",
     limit: "1000",
   }, { fallback: [] });
-  const driveByCompany = new Map((apiDrives ?? []).map((drive) => [drive.company_id, drive]));
-  const confirmedCompanyIds = new Set((applications ?? [])
-    .filter((application) => application.status === "Confirmed" || application.status === "Applied")
-    .map((application) => application.drives?.company_id)
-    .filter((id): id is string => Boolean(id)));
+  const drivesByCompany = new Map<string, ApiDrive[]>();
+  for (const drive of apiDrives ?? []) {
+    const companyDrives = drivesByCompany.get(drive.company_id) ?? [];
+    companyDrives.push(drive);
+    drivesByCompany.set(drive.company_id, companyDrives);
+  }
+  const appliedDriveIds = new Set((applications ?? []).map((application) => application.drive_id));
 
   const companies = useMemo(() => {
     const list = apiCompanies ?? [];
@@ -371,8 +405,8 @@ export default function StudentCompaniesPage() {
               <CompanyCard
                 key={company.id}
                 company={company}
-                drive={driveByCompany.get(company.id)}
-                confirmed={confirmedCompanyIds.has(company.id)}
+                drives={drivesByCompany.get(company.id) ?? []}
+                appliedDriveIds={appliedDriveIds}
                 isExpanded={expandedId === company.id}
                 onToggle={() => setExpandedId(expandedId === company.id ? null : company.id)}
                 onConfirmed={refetchApplications}
