@@ -6,7 +6,7 @@ const rowSchema = z.object({
   roll_number: z.string().trim().min(1),
   full_name: z.string().trim().min(1),
   email: z.string().optional().nullable().or(z.literal("")),
-  department: z.string().trim().min(1),
+  department: z.string().trim().optional().nullable(),
   section: z.string().optional().nullable(),
   year_of_study: z.coerce.number().int().optional().nullable(),
   graduation_year: z.coerce.number().int().optional().nullable(),
@@ -14,7 +14,7 @@ const rowSchema = z.object({
   cgpa: z.coerce.number().optional().nullable(),
   tenth_percent: z.coerce.number().optional().nullable(),
   twelfth_percent: z.coerce.number().optional().nullable(),
-  backlogs: z.coerce.number().int().optional().default(0),
+  backlogs: z.coerce.number().int().optional().nullable(),
   skills: z.string().optional().nullable(), // comma-separated
   extra_fields: z.string().optional().nullable(),
   has_problem_with_details: z.boolean().optional(),
@@ -43,13 +43,17 @@ export async function POST(request: Request) {
       const results: { roll_number: string; status: "upserted" | "error"; error?: string }[] = [];
       for (const row of raw.rows) {
         try {
-          const skills = row.skills ? row.skills.split(",").map((skill) => skill.trim()).filter(Boolean) : [];
+          const email = row.email?.trim() || "NA";
+          const phone = row.phone?.trim() || "NA";
+          const department = row.department?.trim() || "NA";
+          const section = row.section?.trim() || "NA";
+          const skills = row.skills && row.skills.trim().toLowerCase() !== "na" ? row.skills.split(",").map((skill) => skill.trim()).filter(Boolean) : [];
           let extra: Record<string, unknown> = {};
           if (row.extra_fields) { try { extra = JSON.parse(row.extra_fields); } catch { /* optional import details */ } }
           const cgpa = row.cgpa == null ? null : Math.min(Math.max(Number(row.cgpa), 0), 99.99);
           const tenth = row.tenth_percent == null ? null : Math.min(Math.max(Number(row.tenth_percent), 0), 100);
           const twelfth = row.twelfth_percent == null ? null : Math.min(Math.max(Number(row.twelfth_percent), 0), 100);
-          const profileData = { ...extra, imported_name: row.full_name, email: row.email || null,
+          const profileData = { ...extra, imported_name: row.full_name, email,
             has_problem_with_details: Boolean(row.has_problem_with_details), detail_problems: row.detail_problems || [] };
           await developmentDatabaseQuery(
             `insert into public.student_profiles (institution_id, campus_id, roll_number, full_name, email, department, section,
@@ -61,8 +65,8 @@ export async function POST(request: Request) {
                tenth_percent=excluded.tenth_percent, twelfth_percent=excluded.twelfth_percent,
                backlogs=excluded.backlogs, skills=excluded.skills, profile_data=coalesce(public.student_profiles.profile_data,'{}'::jsonb) || excluded.profile_data,
                updated_at=now()`,
-            [institution_id, campus_id, row.roll_number, row.full_name, row.email || null, row.department, row.section || null,
-              row.year_of_study ?? null, row.graduation_year ?? null, row.phone || null, cgpa, tenth, twelfth,
+            [institution_id, campus_id, row.roll_number, row.full_name, email, department, section,
+              row.year_of_study ?? null, row.graduation_year ?? null, phone, cgpa, tenth, twelfth,
               row.backlogs ?? 0, skills, JSON.stringify(profileData)],
           );
           results.push({ roll_number: row.roll_number, status: "upserted" });
@@ -78,7 +82,10 @@ export async function POST(request: Request) {
 
     for (const row of raw.rows) {
       try {
-        const skillsArray = row.skills
+        const department = row.department?.trim() || "NA";
+        const section = row.section?.trim() || "NA";
+        const phone = row.phone?.trim() || "NA";
+        const skillsArray = row.skills && row.skills.trim().toLowerCase() !== "na"
           ? row.skills.split(",").map((s) => s.trim()).filter(Boolean)
           : [];
 
@@ -99,19 +106,21 @@ export async function POST(request: Request) {
             : null;
 
         const studentProfilePayload = {
-          department: row.department,
-          section: row.section ?? null,
+          department,
+          section,
           year_of_study: row.year_of_study ?? null,
           graduation_year: row.graduation_year ?? null,
-          phone: row.phone ?? null,
+          phone,
           cgpa: safeCgpa,
           tenth_percent: safeTenth,
           twelfth_percent: safeTwelfth,
+          // The database requires an integer here. Preserve the missing value
+          // explicitly in detail_problems; the roster renders that case as NA.
           backlogs: row.backlogs ?? 0,
           skills: skillsArray,
         };
 
-        const emailClean = row.email && String(row.email).trim() ? String(row.email).trim() : null;
+        const emailClean = row.email && String(row.email).trim() ? String(row.email).trim() : "NA";
 
         // 1. If valid email provided, match auth user if present
         let matchedUserId: string | null = null;

@@ -49,6 +49,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
   const [importError, setImportError] = useState<string | null>(null);
   const [showAll, setShowAll]      = useState(false);
   const [filterProblemOnly, setFilterProblemOnly] = useState(false);
+  const [naApplied, setNaApplied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
@@ -56,11 +57,13 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
     setEditingIdx(null); setEditValues({}); setImportResult(null);
     setParseError(null); setImportError(null); setShowAll(false);
     setFilterProblemOnly(false);
+    setNaApplied(false);
   };
   const handleClose = () => { reset(); onClose(); };
 
   const processFile = useCallback(async (f: File) => {
     setFile(f); setParseError(null);
+    setNaApplied(false);
     try {
       const rows = await parseStudentFile(f);
       const validated = validateRows(rows);
@@ -117,6 +120,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
       return next;
     });
     setEditingIdx(null);
+    setNaApplied(false);
   };
 
   const handleImport = async () => {
@@ -130,6 +134,32 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
     } catch (err) {
       setImportError((err as Error).message); setStep("preview");
     }
+  };
+
+  // Apply the placeholder in the preview so staff can see what will be imported.
+  // Keep the original validation warnings so these students remain flagged for review.
+  const fillEmptyFieldsWithNA = () => {
+    setValidatedRows((prev) => prev.map((validated) => {
+      const row = { ...validated.row };
+      for (const field of ["email", "phone", "department", "section", "skills"]) {
+        if (row[field] === undefined || row[field] === null || String(row[field]).trim() === "") {
+          row[field] = "NA";
+        }
+      }
+      if (typeof row.extra_fields === "string") {
+        try {
+          const extraFields = JSON.parse(row.extra_fields) as Record<string, unknown>;
+          for (const [key, value] of Object.entries(extraFields)) {
+            if (value === undefined || value === null || String(value).trim() === "") extraFields[key] = "NA";
+          }
+          row.extra_fields = JSON.stringify(extraFields);
+        } catch {
+          // Leave malformed optional extra data untouched.
+        }
+      }
+      return { ...validated, row };
+    }));
+    setNaApplied(true);
   };
 
   const downloadTemplate = () => {
@@ -274,6 +304,22 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
               </div>
 
               {/* Informational Guidance Banner */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-indigo-100 bg-indigo-50/70 p-3.5">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Fill blank optional fields in this sheet</p>
+                  <p className="mt-0.5 text-xs text-slate-600">Adds NA to empty text fields for all students. Missing numeric values stay blank and display as NA.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fillEmptyFieldsWithNA}
+                  disabled={naApplied}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-default disabled:bg-emerald-600"
+                >
+                  <CheckCheck className="h-4 w-4" />
+                  {naApplied ? "Empty fields filled" : "Fill empty fields with NA"}
+                </button>
+              </div>
+
               <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
                 <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600" />
                 <div>
@@ -281,7 +327,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
                     No forceful blocking — you can write the details now or edit later:
                   </p>
                   <p className="text-amber-800 mt-0.5">
-                    If an email, roll number, or any field doesn&apos;t look right, it is addressed below with{" "}
+                    Blank optional fields are saved as <strong>NA</strong> and flagged for review. Roll number and student name are still required. Missing details are shown below with{" "}
                     <span className="font-bold underline decoration-amber-500">this has problem with details</span>.
                     You can click <strong>&quot;Write Details&quot;</strong> to fill them right away, or simply import all students now and edit them anytime later in the Student Directory.
                   </p>
@@ -324,7 +370,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
                             {String(vr.row.full_name ?? "—")}
                           </div>
                           <div className="col-span-3 text-slate-500 truncate">
-                            {vr.row.email ? String(vr.row.email) : vr.row.phone ? String(vr.row.phone) : "—"}
+                            {vr.row.email ? String(vr.row.email) : vr.row.phone ? String(vr.row.phone) : "NA"}
                           </div>
                           <div className="col-span-2 flex justify-end">
                             <button

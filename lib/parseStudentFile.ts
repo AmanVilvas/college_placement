@@ -172,14 +172,11 @@ function transformRows(rawRows: Record<string, string | number>[]): ParsedRow[] 
       const extraDetails: Record<string, string> = {};
 
       for (const [origKey, val] of Object.entries(row)) {
-        if (val === "" || val === undefined || val === null) continue;
-        const strVal = String(val).trim();
-        if (!strVal) continue;
-
+        const strVal = String(val ?? "").trim();
         const mappedKey = headerMap[origKey];
         if (mappedKey) {
           if (mappedKey === "s_no") {
-            extraDetails[origKey] = strVal;
+            if (strVal) extraDetails[origKey] = strVal;
           } else if (
             [
               "cgpa",
@@ -190,14 +187,17 @@ function transformRows(rawRows: Record<string, string | number>[]): ParsedRow[] 
               "graduation_year",
             ].includes(mappedKey)
           ) {
-            const num = parseFloat(strVal.replace(/%/g, "").trim());
-            if (!isNaN(num)) out[mappedKey] = num;
+            if (strVal) {
+              const num = parseFloat(strVal.replace(/%/g, "").trim());
+              if (!isNaN(num)) out[mappedKey] = num;
+            }
           } else {
-            out[mappedKey] = strVal;
+            if (strVal) out[mappedKey] = strVal;
           }
         } else {
-          // Dynamic arbitrary column (from 4-5 column lists)
-          extraDetails[origKey] = strVal;
+          // Preserve arbitrary sheet fields too, including blanks, so imported
+          // profiles can show an explicit NA instead of silently losing a column.
+          extraDetails[origKey] = strVal || "NA";
         }
       }
 
@@ -242,9 +242,9 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
     }
 
     if (!String(row.department ?? "").trim()) {
-      errors.push({
+      warnings.push({
         field: "department",
-        message: "Department or course is required before importing.",
+        message: "This has problem with details: Department / course is missing (can fill now or edit later)",
       });
     }
 
@@ -260,6 +260,23 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
         field: "email",
         message: "This has problem with details: Email format does not look right (can write now or edit later)",
       });
+    }
+
+    const missingFields: [string, unknown, string][] = [
+      ["phone", row.phone, "Phone number"],
+      ["section", row.section, "Section"],
+      ["year_of_study", row.year_of_study, "Year of study"],
+      ["graduation_year", row.graduation_year, "Graduation year"],
+      ["cgpa", row.cgpa, "CGPA / marks"],
+      ["tenth_percent", row.tenth_percent, "10th percentage"],
+      ["twelfth_percent", row.twelfth_percent, "12th percentage"],
+      ["backlogs", row.backlogs, "Backlog count"],
+      ["skills", row.skills, "Skills"],
+    ];
+    for (const [field, value, label] of missingFields) {
+      if (value === undefined || value === null || String(value).trim() === "") {
+        warnings.push({ field, message: `This has problem with details: ${label} is missing (can fill now or edit later)` });
+      }
     }
 
     // 4. CGPA / Marks check
@@ -322,8 +339,13 @@ export function prepareForImport(validatedRows: ValidatedRow[]): ParsedRow[] {
   return validatedRows.map((vr) => {
     const row = { ...vr.row };
     row.has_problem_with_details = vr.hasProblemWithDetails;
-    if (vr.warnings.length > 0) {
-      row.detail_problems = vr.warnings.map((w) => `${w.field}: ${w.message}`);
+    row.detail_problems = vr.warnings.map((w) => `${w.field}: ${w.message}`);
+
+    // Keep missing values visible as a consistent placeholder in imported
+    // student records. Numeric columns remain null in the database and render
+    // as "NA" in the roster; the warnings above retain the missing-field signal.
+    for (const field of ["email", "phone", "department", "section", "skills"]) {
+      if (row[field] === undefined || row[field] === null || String(row[field]).trim() === "") row[field] = "NA";
     }
 
     return row;

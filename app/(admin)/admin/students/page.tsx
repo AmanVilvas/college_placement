@@ -26,7 +26,7 @@ interface ApiStudentProfile {
   section?: string;
   // PostgreSQL numeric values may arrive as strings through the direct DB API.
   cgpa?: number | string | null;
-  backlogs: number;
+  backlogs: number | null;
   graduation_year?: number;
   profile_data?: {
     imported_name?: string;
@@ -56,6 +56,7 @@ function normalise(s: ApiStudentProfile, applications: ApiStudentApplication[] =
   const isTempRoll = s.roll_number.startsWith("TEMP-") || s.roll_number.startsWith("ROLL-");
   const isMissingEmail = !email || !email.includes("@");
   const isTempName = !name || name.startsWith("Student #") || name === "Unknown Student";
+  const missingBacklogs = Boolean(s.profile_data?.detail_problems?.some((problem) => problem.toLowerCase().startsWith("backlogs:")));
 
   const hasProblem = Boolean(
     s.profile_data?.has_problem_with_details ||
@@ -77,10 +78,10 @@ function normalise(s: ApiStudentProfile, applications: ApiStudentApplication[] =
     email: email || "—",
     phone: phone || "—",
     rollNumber: s.roll_number,
-    branch: s.department,
-    section: s.section ?? "—",
+    branch: s.department || "NA",
+    section: s.section || "NA",
     cgpa: Number.isFinite(parsedCgpa) ? parsedCgpa : 0,
-    backlogs: s.backlogs ?? 0,
+    backlogs: missingBacklogs ? null : s.backlogs ?? 0,
     graduationYear: s.graduation_year,
     placementStatus: applications.some((application) => ["Selected", "Placed"].includes(application.status))
       ? "Placed" as const : applications.length ? "In Process" as const : "Unplaced" as const,
@@ -88,7 +89,9 @@ function normalise(s: ApiStudentProfile, applications: ApiStudentApplication[] =
     hasProblemWithDetails: hasProblem,
     detailProblems: s.profile_data?.detail_problems && s.profile_data.detail_problems.length > 0
       ? s.profile_data.detail_problems
-      : fallbackProblems,
+      : s.profile_data?.has_problem_with_details
+        ? [...fallbackProblems, "Some imported student details are missing; fill the fields marked NA."]
+        : fallbackProblems,
     rawProfileData: s.profile_data || {},
   };
 }
@@ -368,7 +371,7 @@ export default function AdminStudentsDirectoryPage() {
                         </td>
                         <td className="px-3 py-4 text-xs text-slate-600">
                           <span className="font-semibold text-slate-800">{student.branch}</span>
-                          {student.section !== "—" && <> • Sec {student.section}</>}
+                          {student.section && student.section !== "—" && student.section !== "NA" && <> • Sec {student.section}</>}
                         </td>
                         <td className="px-3 py-4">
                           {(() => {
@@ -383,14 +386,14 @@ export default function AdminStudentsDirectoryPage() {
                                 : val > 0 ? "bg-slate-100 text-slate-700"
                                 : "text-slate-400"
                               }`}>
-                                {val > 0 ? val.toFixed(2) : "—"}
+                                {val > 0 ? val.toFixed(2) : "NA"}
                               </span>
                             );
                           })()}
                         </td>
                         <td className="px-3 py-4 text-xs text-slate-600">
                           <span className={`font-semibold ${(student.backlogs ?? 0) > 0 ? "text-red-600" : "text-slate-500"}`}>
-                            {student.backlogs ?? 0}
+                            {student.backlogs ?? "NA"}
                           </span>
                         </td>
                         <td className="px-3 py-4">

@@ -12,7 +12,7 @@ export interface StudentToEdit {
   branch: string;
   section?: string;
   cgpa?: number;
-  backlogs?: number;
+  backlogs?: number | null;
   graduationYear?: number;
   hasProblemWithDetails?: boolean;
   detailProblems?: string[];
@@ -49,12 +49,12 @@ function EditStudentModalInner({
 }) {
   const [fullName, setFullName] = useState(student.name === "—" ? "" : student.name);
   const [rollNumber, setRollNumber] = useState(student.rollNumber);
-  const [email, setEmail] = useState(student.email === "—" ? "" : student.email);
-  const [phone, setPhone] = useState(student.phone === "—" ? "" : (student.phone ?? ""));
-  const [department, setDepartment] = useState(student.branch);
-  const [section, setSection] = useState(student.section === "—" ? "" : (student.section ?? ""));
+  const [email, setEmail] = useState(["—", "NA"].includes(student.email) ? "" : student.email);
+  const [phone, setPhone] = useState(["—", "NA"].includes(student.phone ?? "") ? "" : (student.phone ?? ""));
+  const [department, setDepartment] = useState(student.branch === "NA" ? "" : student.branch);
+  const [section, setSection] = useState(["—", "NA"].includes(student.section ?? "") ? "" : (student.section ?? ""));
   const [cgpa, setCgpa] = useState(student.cgpa !== undefined && student.cgpa !== null ? String(student.cgpa) : "");
-  const [backlogs, setBacklogs] = useState(String(student.backlogs ?? 0));
+  const [backlogs, setBacklogs] = useState(student.backlogs == null ? "" : String(student.backlogs));
   const [graduationYear, setGraduationYear] = useState(student.graduationYear ? String(student.graduationYear) : "");
   const [markAsVerified, setMarkAsVerified] = useState(true);
 
@@ -95,7 +95,9 @@ function EditStudentModalInner({
         department: department.trim() || "General",
         section: section.trim() || null,
         cgpa: safeCgpa,
-        backlogs: parseInt(backlogs, 10) || 0,
+        // student_profiles.backlogs is NOT NULL in the database; if staff
+        // confirms a blank backlog field, persist the neutral zero value.
+        backlogs: backlogs.trim() ? parseInt(backlogs, 10) : 0,
         graduation_year: graduationYear ? parseInt(graduationYear, 10) : null,
         profile_data: updatedProfileData,
       };

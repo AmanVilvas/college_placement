@@ -44,7 +44,10 @@ async function supabaseFetch(path: string, init: RequestInit = {}, token?: strin
 export async function setDemoSession(data: { id: string; role: "student" | "college_admin"; email: string; name?: string; rollNumber?: string }) {
   const jar = await cookies();
   const options = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/" };
-  jar.set(DEMO_SESSION_COOKIE, JSON.stringify(data), { ...options, maxAge: 60 * 60 * 24 * 7 });
+  // Keep demo student sessions across browser restarts so test accounts do not
+  // have to sign in repeatedly. The cookie is HTTP-only; never persist passwords
+  // in localStorage or other browser-readable storage.
+  jar.set(DEMO_SESSION_COOKIE, JSON.stringify(data), { ...options, maxAge: 60 * 60 * 24 * 30 });
 }
 
 export async function authenticate(email: string, password: string) {
