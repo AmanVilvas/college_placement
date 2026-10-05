@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
-type BulkEmail = { email: string | null; subject: string; message: string };
+type BulkEmail = { email: string | null; subject: string; message: string; cc?: string[]; bcc?: string[] };
 
 export async function sendBulkEmails(emails: BulkEmail[]) {
   const failures: { recipient: string; channel: string; error: string }[] = [];
@@ -24,7 +24,8 @@ export async function sendBulkEmails(emails: BulkEmail[]) {
         const response = await fetch("https://api.resend.com/emails/batch", {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-          body: JSON.stringify(batch.map((email) => ({ from, to: [email.email!.trim()], subject: email.subject, text: email.message }))),
+          body: JSON.stringify(batch.map((email) => ({ from, to: [email.email!.trim()], subject: email.subject, text: email.message,
+            ...(email.cc?.length ? { cc: email.cc } : {}), ...(email.bcc?.length ? { bcc: email.bcc } : {}) }))),
         });
         if (response.status === 429 && attempt < 3) {
           await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));

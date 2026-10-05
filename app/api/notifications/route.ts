@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { apiError, ApiError, currentProfile, developmentDatabaseQuery } from "@/lib/server/supabase";
 import { deliverBatch, sendEmail } from "@/lib/server/message-delivery";
+import { sendBulkEmails } from "@/lib/server/bulkEmail";
+import { broadcastAudienceSchema, loadBroadcastAudience, validateBroadcastAudience } from "@/lib/server/broadcastAudience";
 
 export const runtime = "nodejs";
 
 const schema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("broadcast"), title: z.string().trim().min(3).max(180), message: z.string().trim().min(5).max(5000), category: z.enum(["Company announcement", "Industry talk", "Placement update", "General notice"]), companyName: z.string().trim().max(120).optional(), department: z.string().trim().max(50).optional(), studentIds: z.array(z.string().uuid()).min(1).max(500).optional(), channels: z.object({ email: z.boolean(), whatsapp: z.boolean() }) }),
+  broadcastAudienceSchema.extend({ action: z.literal("broadcast"), title: z.string().trim().min(3).max(180), message: z.string().trim().min(5).max(5000), category: z.enum(["Company announcement", "Industry talk", "Placement update", "General notice"]), companyName: z.string().trim().max(120).optional(), studentIds: z.array(z.string().uuid()).min(1).max(2000).optional(), channels: z.object({ email: z.boolean(), whatsapp: z.boolean() }), cc: z.array(z.string().trim().email()).max(20).default([]), bcc: z.array(z.string().trim().email()).max(20).default([]) }),
   z.object({ action: z.literal("shortlist"), applicationId: z.string().uuid(), roundDetails: z.string().trim().max(2000).optional() }),
   z.object({ action: z.literal("application_status"), applicationId: z.string().uuid(), status: z.enum(["Eligible", "Interested", "Applied", "Confirmed", "Shortlisted", "Assessment", "Interview", "Selected", "Placed", "Rejected", "Not Responded"]) }),
 ]);
@@ -133,19 +135,21 @@ export async function POST(request: Request) {
     }
 
     if (input.action === "broadcast") {
-      const students = await developmentDatabaseQuery<{ id: string; user_id: string | null; full_name: string; email: string | null; profile_email: string | null; phone: string | null }>(
-        `select s.id, s.user_id, s.full_name, s.email, p.email as profile_email, s.phone
-         from public.student_profiles s left join public.profiles p on p.id=s.user_id
-         where s.institution_id=$1 and s.campus_id=$2 and ($3::text is null or s.department=$3)
-           and ($4::uuid[] is null or s.id=any($4::uuid[]))
-         order by s.full_name asc`,
-        [profile.institution_id, profile.campus_id, input.department || null, input.studentIds ?? null],
-      );
+      try { validateBroadcastAudience(input); } catch (error) { throw new ApiError(400, (error as Error).message); }
+      if (!input.channels.email && (input.cc.length || input.bcc.length)) throw new ApiError(400, "Enable email to use CC or BCC.");
+      const students = await loadBroadcastAudience(profile, input, input.studentIds);
       const recipients = students.map((student) => ({ id: student.id, user_id: student.user_id, name: student.full_name || "Student",
-        email: student.email || student.profile_email, phone: student.phone }));
+        email: student.email, phone: student.phone }));
       if (!recipients.length) throw new ApiError(404, "No students matched this campus and audience.");
-      const result = await deliverBatch(recipients, input.channels, input.title, `${input.companyName ? `${input.companyName}\n\n` : ""}${input.message}`);
-      await recordNotifications(profile, recipients, input.title, input.message, input.category, { channels: input.channels, companyName: input.companyName });
+      const body = `${input.companyName ? `${input.companyName}\n\n` : ""}${input.message}`;
+      const cc = [...new Set(input.cc.map((address) => address.toLowerCase()))];
+      const bcc = [...new Set(input.bcc.map((address) => address.toLowerCase()))].filter((address) => !cc.includes(address));
+      const emailResult = input.channels.email ? await sendBulkEmails(recipients.map((recipient) => ({ email: recipient.email, subject: input.title, message: body,
+        cc: cc.filter((address) => address !== recipient.email?.toLowerCase()), bcc: bcc.filter((address) => address !== recipient.email?.toLowerCase()) }))) : { emailSent: 0, failures: [] };
+      const whatsappResult = input.channels.whatsapp ? await deliverBatch(recipients, { email: false, whatsapp: true }, input.title, body) : { whatsappSent: 0, failures: [] };
+      const result = { emailSent: emailResult.emailSent, whatsappSent: whatsappResult.whatsappSent, failures: [...emailResult.failures, ...whatsappResult.failures] };
+      await recordNotifications(profile, recipients, input.title, input.message, input.category, { channels: input.channels, companyName: input.companyName,
+        audienceFilter: input.audienceFilter, driveId: input.driveId });
       return Response.json({ data: { audience: recipients.length, ...result } });
     }
 
