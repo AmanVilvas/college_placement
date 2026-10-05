@@ -126,7 +126,7 @@ Add these server-side environment variables to `.env.local` and your hosting pro
 | `WHATSAPP_TEMPLATE_LANGUAGE` | Approved template language code (defaults to `en`) |
 | `WHATSAPP_API_VERSION` | Graph API version (defaults to `v23.0`) |
 
-The WhatsApp template must be approved by Meta and contain **two body text parameters**, in order: `{{1}}` for the student's name and `{{2}}` for the alert title. Meta requires an approved template for business-initiated messages outside the customer service window. Only send WhatsApp messages to students who have provided the required opt-in. Without the WhatsApp settings, email broadcasts still work; shortlist attempts report channel failures in the admin screen.
+The WhatsApp template must be approved by Meta and contain **two body text parameters**, in order: `{{1}}` for the company name and `{{2}}` for the student's name. Meta requires an approved template for business-initiated messages outside the customer service window. Only send WhatsApp messages to students who have provided the required opt-in. Without the WhatsApp settings, email broadcasts still work; shortlist attempts report channel failures in the admin screen.
 
 ---
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 import { DataSkeleton } from "@/components/shared/DataSkeleton";
 import { apiMutate, useApiResource } from "@/lib/useApi";
 import { StudentHeader } from "@/components/student/StudentHeader";
@@ -24,13 +26,21 @@ export default function NotificationsPage() {
   const unread = notifications.filter((n) => !n.read);
   const read = notifications.filter((n) => n.read);
 
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") void refetch(); };
+    const timer = window.setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, [refetch]);
+
   async function markRead(id: string) {
-    try { await apiMutate("PATCH", "notifications", { id, read: true }); await refetch(); } catch { /* retain current list; refresh can surface server state */ }
+    try { await apiMutate("PATCH", "notifications", { id, read: true }); await refetch(); window.dispatchEvent(new Event("notifications-updated")); } catch { /* retain current list; refresh can surface server state */ }
   }
 
   async function markAllRead() {
     await Promise.all(unread.map((notification) => apiMutate("PATCH", "notifications", { id: notification.id, read: true })));
     await refetch();
+    window.dispatchEvent(new Event("notifications-updated"));
   }
 
   return (
@@ -67,7 +77,7 @@ export default function NotificationsPage() {
                       </div>
                       <p className="text-xs text-slate-600 mt-1 leading-relaxed">{notif.message}</p>
                       <p className="text-[10px] text-slate-400 mt-2">{formatDateTime(notif.createdAt)}</p>
-                      {notif.driveId && <Link href={`/companies/${notif.driveId}`} className="mt-2 inline-block text-[10px] font-semibold text-red-700 hover:underline">View related drive →</Link>}
+                      {notif.communityCompanyId ? <Link href={`/community?companyId=${encodeURIComponent(notif.communityCompanyId)}`} className="mt-2 mr-3 inline-block text-[10px] font-semibold text-red-700 hover:underline">View company community →</Link> : notif.driveId && <Link href={`/companies/${notif.driveId}`} className="mt-2 inline-block text-[10px] font-semibold text-red-700 hover:underline">View related drive →</Link>}
                       <button onClick={() => void markRead(notif.id)} className="mt-2 text-[10px] font-semibold text-red-700">Mark as read</button>
                     </div>
                   </div>
@@ -99,7 +109,7 @@ export default function NotificationsPage() {
                       <h3 className="text-sm font-semibold text-slate-700 mt-0.5">{notif.title}</h3>
                       <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-2">{notif.message}</p>
                       <p className="text-[10px] text-slate-400 mt-2">{formatDateTime(notif.createdAt)}</p>
-                      {notif.driveId && <Link href={`/companies/${notif.driveId}`} className="mt-2 inline-block text-[10px] font-semibold text-red-700 hover:underline">View related drive →</Link>}
+                      {notif.communityCompanyId ? <Link href={`/community?companyId=${encodeURIComponent(notif.communityCompanyId)}`} className="mt-2 inline-block text-[10px] font-semibold text-red-700 hover:underline">View company community →</Link> : notif.driveId && <Link href={`/companies/${notif.driveId}`} className="mt-2 inline-block text-[10px] font-semibold text-red-700 hover:underline">View related drive →</Link>}
                     </div>
                   </div>
                 );

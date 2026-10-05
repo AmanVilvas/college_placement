@@ -158,6 +158,7 @@ export interface Notification {
   targetBranches?: Branch[];
   driveId?: string;
   companyName?: string;
+  communityCompanyId?: string;
 }
 
 // ============================================================

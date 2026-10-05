@@ -30,12 +30,13 @@ export async function sendWhatsApp(recipient: Recipient, title: string, message:
   if (!token || !phoneNumberId || !template) throw new Error("WhatsApp is not configured. Set WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, and WHATSAPP_TEMPLATE_NAME.");
   if (!recipient.phone) throw new Error("Student has no phone number.");
   const version = process.env.WHATSAPP_API_VERSION || "v23.0";
+  const companyName = title.replace(/^Shortlisted:\s*/i, "").trim();
   const response = await fetch(`https://graph.facebook.com/${version}/${phoneNumberId}/messages`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       messaging_product: "whatsapp", to: recipient.phone.replace(/[^\d]/g, ""), type: "template",
-      template: { name: template, language: { code: process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en" }, components: [{ type: "body", parameters: [{ type: "text", text: (recipient.name || "Student").slice(0, 1024) }, { type: "text", text: title.slice(0, 1024) }] }] },
+      template: { name: template, language: { code: process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en" }, components: [{ type: "body", parameters: [{ type: "text", text: companyName.slice(0, 1024) }, { type: "text", text: (recipient.name || "Student").slice(0, 1024) }] }] },
     }),
   });
   if (!response.ok) throw new Error(await responseError(response));

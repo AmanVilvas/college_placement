@@ -32,7 +32,9 @@ export async function GET() {
     );
     return Response.json({ data: rows.map((row) => ({ id: row.id, title: row.title, message: row.message, category: row.category,
       read: Boolean(row.read_at), readAt: row.read_at, createdAt: row.created_at,
-      companyName: row.metadata?.companyName, driveId: row.metadata?.driveId })) });
+      companyName: row.metadata?.companyName, driveId: row.metadata?.driveId,
+      communityCompanyId: row.metadata?.source === "community" ? row.metadata?.companyId : undefined })) },
+      { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return apiError(error); }
 }
 

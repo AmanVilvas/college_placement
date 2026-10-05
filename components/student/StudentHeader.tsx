@@ -20,8 +20,19 @@ export function StudentHeader({ title, subtitle }: StudentHeaderProps) {
   const [query, setQuery] = useState("");
   const [signingOut, setSigningOut] = useState(false);
   const [student] = useStudentProfile();
-  const { data: notifications } = useApiResource<Notification[]>("notifications", {}, { fallback: [] });
+  const { data: notifications, refetch: refreshNotifications } = useApiResource<Notification[]>("notifications", {}, { fallback: [] });
   const unreadCount = (notifications ?? []).filter((item) => !item.read).length;
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") void refreshNotifications(); };
+    const timer = window.setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("notifications-updated", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("notifications-updated", refresh);
+    };
+  }, [refreshNotifications]);
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); inputRef.current?.focus(); }

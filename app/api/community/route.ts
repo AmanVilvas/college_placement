@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError, ApiError, currentProfile, developmentDatabaseQuery } from "@/lib/server/supabase";
 import { eligibleDriveSql } from "@/lib/server/companyCommunity";
+import { communityNotificationsSql } from "@/lib/server/communityNotifications";
 
 export const runtime = "nodejs";
 const staffRoles = new Set(["super_admin", "college_admin", "tpo", "coordinator", "admin-local"]);
@@ -66,17 +67,16 @@ export async function GET() {
          order by c.name asc, d.application_deadline asc nulls last`,
         [student.id, profile.institution_id, profile.campus_id],
       );
-      const companyMap = new Map<string, CompanyRow>();
       drives = [];
       for (const row of eligible) {
-        if (!companyMap.has(row.company_id)) companyMap.set(row.company_id, {
-          id: row.company_id, name: row.company_name, website: row.website, industry: row.industry,
-          description: row.description, logo_url: row.logo_url, metadata: row.metadata,
-        });
         drives.push({ id: row.id, company_id: row.company_id, role_title: row.role_title, package_lpa: row.package_lpa,
           location: row.location, work_mode: row.work_mode, application_deadline: row.application_deadline, eligibility: row.eligibility });
       }
-      companies = [...companyMap.values()];
+      companies = await developmentDatabaseQuery<CompanyRow>(
+        `select id, name, website, industry, description, logo_url, metadata from public.companies
+         where institution_id=$1 and campus_id=$2 and archived=false order by name asc`,
+        [profile.institution_id, profile.campus_id],
+      );
       const companyIds = companies.map((company) => company.id);
       const driveIds = drives.map((drive) => drive.id);
       resources = companyIds.length
@@ -133,10 +133,12 @@ export async function POST(request: Request) {
     const bytes = file ? Buffer.from(await file.arrayBuffer()) : null;
     const mime = file ? allowedFiles[extension] : null;
     const rows = await developmentDatabaseQuery(
-      `insert into placement_private.company_community_resources
+      `with posted as (insert into placement_private.company_community_resources
         (institution_id,campus_id,company_id,drive_id,title,body,file_name,content_type,file_size,file_data,created_by)
        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,case when $10::text is null then null else decode($10,'base64') end,$11)
-       returning id, company_id, drive_id, title, body, file_name, content_type, file_size, created_at`,
+       returning id, institution_id, campus_id, company_id, drive_id, title, body, file_name, content_type, file_size, created_at
+       ), notified as (${communityNotificationsSql("resource")})
+       select posted.*, (select count(*)::int from notified) as notification_count from posted`,
       [profile.institution_id, profile.campus_id, input.companyId, input.driveId || null, input.title, input.body || null,
         file ? file.name.replace(/[\x00-\x1f\x7f/\\]/g, "_").slice(0, 200) : null, mime, file?.size ?? null,
         bytes?.toString("base64") ?? null, profile.id === "admin-local" ? null : profile.id],

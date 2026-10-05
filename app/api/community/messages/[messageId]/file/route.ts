@@ -28,9 +28,11 @@ export async function GET(_request: Request, context: RouteContext<"/api/communi
       const student = students[0];
       if (!student) throw new ApiError(403, "Your student account is not linked to a placement profile.");
       const eligibility = await developmentDatabaseQuery<{ allowed: boolean }>(
-        `select exists(select 1 from public.drives d cross join public.student_profiles s
-           where s.id=$1 and d.company_id=$2 and d.institution_id=$3 and d.campus_id=$4
-             and ($5::uuid is null or d.id=$5) and ${eligibleDriveSql}) as allowed`,
+        `select exists(select 1 from public.companies c
+           where c.id=$2 and c.institution_id=$3 and c.campus_id=$4 and c.archived=false
+             and ($5::uuid is null or exists(select 1 from public.drives d cross join public.student_profiles s
+               where s.id=$1 and d.company_id=c.id and d.institution_id=$3 and d.campus_id=$4
+                 and d.id=$5 and ${eligibleDriveSql}))) as allowed`,
         [student.id, file.company_id, profile.institution_id, profile.campus_id, file.drive_id],
       );
       if (!eligibility[0]?.allowed) throw new ApiError(403, "You are no longer eligible to access this attachment.");

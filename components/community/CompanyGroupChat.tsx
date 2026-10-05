@@ -30,6 +30,7 @@ export function CompanyGroupChat({ company, isStaff }: { company: CommunityCompa
   const [viewerStudentId, setViewerStudentId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const reactionPendingRef = useRef(false);
 
   const loadMessages = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -93,6 +94,8 @@ export function CompanyGroupChat({ company, isStaff }: { company: CommunityCompa
   }
 
   async function react(message: CommunityChatMessage, emoji: string) {
+    if (isStaff || reactionPendingRef.current || message.reactions?.some((reaction) => reaction.mine)) return;
+    reactionPendingRef.current = true;
     setReactingId(message.id); setError("");
     try {
       const response = await fetch(`/api/community/messages/${encodeURIComponent(message.id)}/reactions`, {
@@ -100,9 +103,21 @@ export function CompanyGroupChat({ company, isStaff }: { company: CommunityCompa
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error ?? "Could not save your reaction.");
+      const savedEmoji = result.data?.emoji;
+      if (typeof savedEmoji === "string") {
+        setMessages((current) => current.map((item) => {
+          if (item.id !== message.id) return item;
+          const reactions = item.reactions ?? [];
+          const existing = reactions.find((reaction) => reaction.emoji === savedEmoji);
+          return { ...item, reactions: existing
+            ? reactions.map((reaction) => ({ ...reaction, mine: reaction.emoji === savedEmoji,
+              count: reaction.emoji === savedEmoji && !reaction.mine ? reaction.count + 1 : reaction.count }))
+            : [...reactions.map((reaction) => ({ ...reaction, mine: false })), { emoji: savedEmoji, count: 1, mine: true }] };
+        }));
+      }
       setReactionPickerId(""); await loadMessages(true);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save your reaction."); }
-    finally { setReactingId(""); }
+    finally { reactionPendingRef.current = false; setReactingId(""); }
   }
 
   const selectedDrive = company.drives.find((drive) => drive.id === driveId);
@@ -118,7 +133,7 @@ export function CompanyGroupChat({ company, isStaff }: { company: CommunityCompa
 
     <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-slate-50 px-3 py-4 sm:px-5">
       <div className="mx-auto max-w-md rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-center text-[11px] leading-5 text-indigo-900">
-        This group is visible to students who currently qualify for {company.name} drives. Keep messages focused on placement preparation and updates.
+        General updates for {company.name} are visible to campus students. Updates for a specific drive are shown only to eligible students.
       </div>
       {loading && <div className="flex items-center justify-center gap-2 py-16 text-xs text-slate-500"><Loader2 className="h-4 w-4 animate-spin"/>Loading group messages…</div>}
       {!loading && messages.length === 0 && <div className="py-16 text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-indigo-600 shadow-sm"><Send className="h-5 w-5"/></div><p className="mt-3 text-sm font-semibold text-slate-700">{isStaff ? "Start the conversation" : "No updates yet"}</p><p className="mt-1 text-xs text-slate-500">{isStaff ? "Share a placement update, preparation tip, file, or poll." : "Placement staff will post updates, resources, and polls here."}</p></div>}
@@ -126,6 +141,7 @@ export function CompanyGroupChat({ company, isStaff }: { company: CommunityCompa
         const fromStaff = message.author_role === "placement_staff";
         const isMine = message.is_mine ?? Boolean(viewerStudentId && message.author_student_id === viewerStudentId);
         const messageDrive = company.drives.find((drive) => drive.id === message.drive_id);
+        const hasReacted = Boolean(message.reactions?.some((reaction) => reaction.mine));
         return <article key={message.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
           <div className={`max-w-[92%] rounded-2xl px-3.5 py-2.5 shadow-sm sm:max-w-[78%] ${isMine ? "rounded-tr-md bg-indigo-700 text-white" : "rounded-tl-md border border-slate-200 bg-white"}`}>
             <div className="mb-1 flex items-center gap-2"><span className={`text-[10px] font-bold ${isMine ? "text-indigo-100" : "text-indigo-700"}`}>{message.author_name}{fromStaff ? " · Placement team" : isMine ? " · You" : ""}</span>{messageDrive && <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] text-indigo-700">{messageDrive.role_title}</span>}</div>
@@ -138,7 +154,14 @@ export function CompanyGroupChat({ company, isStaff }: { company: CommunityCompa
             : message.body && <p className={`whitespace-pre-wrap break-words text-sm leading-5 ${isMine ? "text-white" : "text-slate-800"}`}>{message.body}</p>}
             {message.file_name && <a href={message.resource_id ? `/api/community/${encodeURIComponent(message.resource_id)}/download` : `/api/community/messages/${encodeURIComponent(message.id)}/file`} className={`mt-2 flex items-center gap-2 rounded-lg border p-2.5 ${isMine ? "border-white/20 bg-indigo-600 text-white" : "border-slate-200 bg-slate-50 text-slate-700"}`}><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/80 text-indigo-700">{message.content_type?.startsWith("image/") ? <ImageIcon className="h-4 w-4"/> : <FileText className="h-4 w-4"/>}</span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold">{message.file_name}</span><span className={`block text-[10px] ${isMine ? "text-indigo-100" : "text-slate-500"}`}>{fileSize(message.file_size)}</span></span><Download className="h-4 w-4 shrink-0"/></a>}
             <p className={`mt-1.5 text-right text-[9px] ${isMine ? "text-indigo-100" : "text-slate-400"}`}>{stamp(message.created_at)}</p>
-            {(message.reactions?.length || !isStaff) ? <div className="mt-1.5 flex flex-wrap items-center gap-1">{message.reactions?.map((reaction) => <button key={`${message.id}-${reaction.emoji}`} type="button" disabled={isStaff || reactingId === message.id} onClick={() => void react(message, reaction.emoji)} aria-label={`${reaction.emoji}, ${reaction.count} reactions${reaction.mine ? ", yours" : ""}`} className={`rounded-full border px-2 py-1 text-[10px] ${reaction.mine ? "border-indigo-300 bg-indigo-50 text-indigo-800" : "border-slate-200 bg-white text-slate-600"}`}>{reaction.emoji} {reaction.count}</button>)}{!isStaff && <div className="relative"><button type="button" aria-label="React to message" onClick={() => setReactionPickerId((open) => open === message.id ? "" : message.id)} className="rounded-full border border-slate-200 bg-white p-1.5 text-slate-500 hover:border-indigo-300 hover:text-indigo-700"><SmilePlus className="h-3.5 w-3.5"/></button>{reactionPickerId === message.id && <div className="absolute bottom-8 left-0 z-10 flex gap-1 rounded-full border border-slate-200 bg-white p-1.5 shadow-lg">{reactionEmojis.map((emoji) => <button key={emoji} type="button" disabled={reactingId === message.id} onClick={() => void react(message, emoji)} aria-label={`React ${emoji}`} className="rounded-full p-1.5 text-base hover:bg-indigo-50">{emoji}</button>)}</div>}</div>}</div> : null}
+            {(message.reactions?.length || !isStaff) ? <div className="mt-1.5 flex flex-wrap items-center gap-1">
+              {message.reactions?.map((reaction) => <button key={`${message.id}-${reaction.emoji}`} type="button" disabled={isStaff || hasReacted || Boolean(reactingId)} onClick={() => void react(message, reaction.emoji)} aria-label={`${reaction.emoji}, ${reaction.count} reactions${reaction.mine ? ", yours" : ""}`} className={`rounded-full border px-2 py-1 text-[10px] ${reaction.mine ? "border-indigo-300 bg-indigo-50 text-indigo-800" : "border-slate-200 bg-white text-slate-600"}`}>{reaction.emoji} {reaction.count}</button>)}
+              {!isStaff && !hasReacted && <div className="relative">
+                <button type="button" disabled={Boolean(reactingId)} aria-label="React to message" onClick={() => setReactionPickerId((open) => open === message.id ? "" : message.id)} className="rounded-full border border-slate-200 bg-white p-1.5 text-slate-500 hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-50"><SmilePlus className="h-3.5 w-3.5"/></button>
+                {reactionPickerId === message.id && <div className="absolute bottom-8 left-0 z-10 flex gap-1 rounded-full border border-slate-200 bg-white p-1.5 shadow-lg">{reactionEmojis.map((emoji) => <button key={emoji} type="button" disabled={Boolean(reactingId)} onClick={() => void react(message, emoji)} aria-label={`React ${emoji}`} className="rounded-full p-1.5 text-base hover:bg-indigo-50">{emoji}</button>)}</div>}
+              </div>}
+              {!isStaff && hasReacted && <span className="text-[10px] text-slate-500">Your reaction is saved</span>}
+            </div> : null}
           </div>
         </article>;
       })}
@@ -156,7 +179,7 @@ export function CompanyGroupChat({ company, isStaff }: { company: CommunityCompa
         <button type="button" aria-label="Attach a file" onClick={() => fileInputRef.current?.click()} disabled={sending || pollMode} className="mb-1 rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-indigo-700 disabled:opacity-40"><Paperclip className="h-5 w-5"/></button>
         {isStaff && <button type="button" aria-label="Create a poll" onClick={() => { setPollMode((active) => !active); setFile(null); }} disabled={sending} className={`mb-1 rounded-full p-2 hover:bg-indigo-50 ${pollMode ? "text-indigo-700" : "text-slate-500"}`}><BarChart3 className="h-5 w-5"/></button>}
         {!pollMode && <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={1} maxLength={30000} placeholder="Write a message to the group…" className="max-h-28 min-h-10 flex-1 resize-y rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white" />}
-        {isStaff && !pollMode && company.drives.length > 0 && <select aria-label="Chat audience" value={driveId} onChange={(event) => setDriveId(event.target.value)} className="hidden max-w-40 rounded-xl border border-slate-200 bg-white px-2 py-2 text-[10px] sm:block"><option value="">All eligible</option>{company.drives.map((drive) => <option key={drive.id} value={drive.id}>{drive.role_title}</option>)}</select>}
+        {isStaff && !pollMode && company.drives.length > 0 && <select aria-label="Chat audience" value={driveId} onChange={(event) => setDriveId(event.target.value)} className="hidden max-w-40 rounded-xl border border-slate-200 bg-white px-2 py-2 text-[10px] sm:block"><option value="">All campus students</option>{company.drives.map((drive) => <option key={drive.id} value={drive.id}>{drive.role_title}</option>)}</select>}
         <button type="submit" disabled={sending || (pollMode ? !pollTopic.trim() || !body.trim() || pollOptions.filter((option) => option.trim()).length < 2 : !body.trim() && !file) || (file?.size ?? 0) > maxFileBytes} aria-label={pollMode ? "Publish poll" : "Send message"} className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-700 text-white shadow-sm hover:bg-indigo-800 disabled:opacity-40">{sending ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4"/>}</button>
       </form>
       <div className="mt-1.5 flex justify-between gap-2 text-[9px] text-slate-400"><span>Only placement staff can post · students can view, react, and vote in polls</span>{file && file.size > maxFileBytes && <span className="text-rose-600">Max file size is 4 MB</span>}</div>

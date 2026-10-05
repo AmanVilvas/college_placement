@@ -272,7 +272,10 @@ export async function POST(request: Request, context: { params: Promise<{ resour
     let record = input;
     const useDirectDatabase = process.env.NODE_ENV === "production" || isLocalDevelopmentRequest(request);
 
-    if (table === "companies" && input.logo_url != null) {
+    if (table === "companies") {
+      if (typeof input.logo_url !== "string" || !input.logo_url.trim()) {
+        throw new ApiError(400, "Upload a company logo before adding the company.");
+      }
       if (typeof input.logo_url !== "string"
         || input.logo_url.length > 250_000
         || !/^data:image\/webp;base64,[A-Za-z0-9+/]+={0,2}$/.test(input.logo_url)) {

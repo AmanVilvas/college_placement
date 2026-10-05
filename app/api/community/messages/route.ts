@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ApiError, apiError, currentProfile, developmentDatabaseQuery } from "@/lib/server/supabase";
 import { eligibleDriveSql } from "@/lib/server/companyCommunity";
+import { communityNotificationsSql } from "@/lib/server/communityNotifications";
 
 export const runtime = "nodejs";
 const staffRoles = new Set(["super_admin", "college_admin", "tpo", "coordinator", "admin-local"]);
@@ -55,7 +56,6 @@ export async function GET(request: Request) {
     const student = staff ? null : await findStudent(profile, user.id, profile.institution_id, profile.campus_id);
     if (!staff && !student) throw new ApiError(403, "Your student account is not linked to a placement profile.");
     const { driveIds } = await loadCompanyAndEligibleDrives(companyInput, profile.institution_id, profile.campus_id, student);
-    if (!staff && driveIds.length === 0) throw new ApiError(403, "You are not currently eligible for this company group.");
     const rows = await developmentDatabaseQuery<Record<string, unknown>>(
       `select m.id,m.company_id,m.drive_id,m.author_student_id,m.author_name,m.author_role,m.message_type,m.body,
               m.file_name,m.content_type,m.file_size,m.poll_topic,m.poll_options,m.created_at,
@@ -84,12 +84,16 @@ export async function GET(request: Request) {
         staff && profile.id === "admin-local", staff && profile.id !== "admin-local" ? profile.id : null, driveIds],
     );
     const resources = await developmentDatabaseQuery<Record<string, unknown>>(
-      `select id,company_id,drive_id,title,body,file_name,content_type,file_size,created_at
-       from placement_private.company_community_resources
-       where institution_id=$1 and campus_id=$2 and company_id=$3
-         and (drive_id is null or drive_id=any($4::uuid[]))
-       order by created_at desc limit 200`,
-      [profile.institution_id, profile.campus_id, companyInput, driveIds],
+      `select m.id,m.company_id,m.drive_id,m.title,m.body,m.file_name,m.content_type,m.file_size,m.created_at,
+              coalesce((select jsonb_agg(jsonb_build_object('emoji',reaction_counts.emoji,'count',reaction_counts.total,'mine',reaction_counts.mine) order by reaction_counts.emoji)
+                from (select r.emoji,count(*)::int as total,coalesce(bool_or(r.student_id=$5::uuid),false) as mine
+                      from placement_private.company_community_resource_reactions r
+                      where r.resource_id=m.id group by r.emoji) reaction_counts),'[]'::jsonb) as reactions
+       from placement_private.company_community_resources m
+       where m.institution_id=$1 and m.campus_id=$2 and m.company_id=$3
+         and (m.drive_id is null or m.drive_id=any($4::uuid[]))
+       order by m.created_at desc limit 200`,
+      [profile.institution_id, profile.campus_id, companyInput, driveIds, student?.id ?? null],
     );
     const resourceMessages = resources.map((resource) => ({
       id: `resource:${String(resource.id)}`, resource_id: resource.id,
@@ -97,7 +101,7 @@ export async function GET(request: Request) {
       author_student_id: null, author_name: "Placement Office", author_role: "placement_staff",
       message_type: "resource", resource_title: resource.title, body: resource.body ?? "",
       file_name: resource.file_name, content_type: resource.content_type, file_size: resource.file_size,
-      poll_topic: null, poll_options: null, my_vote: null, is_mine: false, poll_votes: [], reactions: [],
+      poll_topic: null, poll_options: null, my_vote: null, is_mine: false, poll_votes: [], reactions: resource.reactions,
       created_at: resource.created_at,
     }));
     const timeline = [...rows, ...resourceMessages]
@@ -145,12 +149,14 @@ export async function POST(request: Request) {
     const authorName = typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name : "Placement Office";
     const bytes = file ? Buffer.from(await file.arrayBuffer()) : null;
     const rows = await developmentDatabaseQuery<Record<string, unknown>>(
-      `insert into placement_private.company_community_messages
+      `with posted as (insert into placement_private.company_community_messages
         (institution_id,campus_id,company_id,drive_id,author_profile_id,author_student_id,author_name,author_role,
          message_type,body,file_name,content_type,file_size,file_data,poll_options,poll_topic)
        values ($1,$2,$3,$4,$5::uuid,$6::uuid,$7,$8,$9,$10,$11,$12,$13,
                case when $14::text is null then null else decode($14,'base64') end,$15::jsonb,$16)
-       returning id,company_id,drive_id,author_name,author_role,message_type,body,file_name,content_type,file_size,poll_topic,poll_options,created_at`,
+       returning id,institution_id,campus_id,company_id,drive_id,author_name,author_role,message_type,body,file_name,content_type,file_size,poll_topic,poll_options,created_at
+       ), notified as (${communityNotificationsSql("message")})
+       select posted.*, (select count(*)::int from notified) as notification_count from posted`,
       [profile.institution_id, profile.campus_id, input.companyId, driveId,
         staff && profile.id !== "admin-local" ? profile.id : null, null, authorName,
         "placement_staff", input.type === "poll" ? "poll" : file ? "file" : "text", input.body,

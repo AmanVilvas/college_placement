@@ -7,7 +7,7 @@ import { apiMutate, useApiResource } from "@/lib/useApi";
 import { formatDate, getDaysUntilDeadline } from "@/lib/utils";
 import {
   AlertCircle, Filter, MessageSquare, Eye, Phone,
-  Clock, CheckCircle, XCircle, ChevronDown, Check, UserX, Loader2,
+  Clock, CheckCircle, ChevronDown, Check, UserX, Loader2, Building2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -30,10 +30,33 @@ interface ApiFollowUp {
   drive_id: string;
   drive_name: string;
   application_deadline: string | null;
+  company_id?: string;
   company_name: string;
   application_id: string | null;
   status: string;
   follow_up_count: number;
+}
+
+function groupFollowUps(candidates: ApiFollowUp[]) {
+  const companies = new Map<string, { id: string; name: string; candidates: ApiFollowUp[]; roles: Map<string, { name: string; candidates: ApiFollowUp[] }> }>();
+  for (const candidate of candidates) {
+    const companyId = candidate.company_id || candidate.company_name;
+    let company = companies.get(companyId);
+    if (!company) {
+      company = { id: companyId, name: candidate.company_name, candidates: [], roles: new Map() };
+      companies.set(companyId, company);
+    }
+    company.candidates.push(candidate);
+    const roleName = candidate.drive_name.trim() || "Placement drive";
+    const roleKey = roleName.toLowerCase();
+    let role = company.roles.get(roleKey);
+    if (!role) {
+      role = { name: roleName, candidates: [] };
+      company.roles.set(roleKey, role);
+    }
+    role.candidates.push(candidate);
+  }
+  return Array.from(companies.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export default function FollowUpsPage() {
@@ -48,7 +71,7 @@ export default function FollowUpsPage() {
   const followUpApps = rows ?? [];
 
   const filtered = followUpApps.filter((app) => {
-    if (filters.company && !app.company_name.toLowerCase().includes(filters.company.toLowerCase())) return false;
+    if (filters.company && app.company_name !== filters.company) return false;
     if (filters.branch && app.student_branch !== filters.branch) return false;
     if (filters.section && app.student_section !== filters.section) return false;
     if (filters.status && app.status !== filters.status) return false;
@@ -99,6 +122,7 @@ export default function FollowUpsPage() {
   const externallyApplied = filtered.filter((a) => a.status === "Applied").length;
   const shortlisted = filtered.filter((a) => a.status === "Shortlisted").length;
   const assessment = filtered.filter((a) => a.status === "Assessment").length;
+  const companyGroups = groupFollowUps(filtered);
 
   return (
     <div>
@@ -225,99 +249,128 @@ export default function FollowUpsPage() {
           </div>
         </div>
 
-        {/* Clean Data Table */}
+        {/* Company queues with role subgroups */}
         <div className="card-clean overflow-hidden bg-white">
           <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>{loading ? "Loading follow-up queue…" : <>Showing <strong>{filtered.length}</strong> eligible students requiring follow-up</>}</span>
-            <span className="text-[11px]">Sorted by urgency</span>
+            <span>{loading ? "Loading follow-up queue…" : <><strong>{filtered.length}</strong> follow-ups across <strong>{companyGroups.length}</strong> companies</>}</span>
+            <span className="text-[11px]">Urgency order within each role</span>
           </div>
 
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div role="status" className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Loading company follow-ups…</div>
+          ) : filtered.length === 0 ? (
             <div className="p-12 text-center">
               <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-2 opacity-80" />
               <p className="text-sm font-semibold text-slate-800">All caught up!</p>
               <p className="text-xs text-slate-400 mt-0.5">No students require follow-up with the selected criteria.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-slate-50/70 border-b border-slate-100">
-                    <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Student</th>
-                    <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-3">Roll No.</th>
-                    <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-3">Company & Role</th>
-                    <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-3">Status</th>
-                    <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-3">Deadline</th>
-                    <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-3">Attempts</th>
-                    <th className="text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
-                  {filtered.map((app) => {
-                    const daysLeft = app.application_deadline ? getDaysUntilDeadline(app.application_deadline) : 0;
-                    const actionId = `${app.drive_id}:${app.student_id}`;
-                    const isSending = pendingFollowUpId === actionId;
-                    const isCalling = pendingCallId === actionId;
-
-                    return (
-                      <tr
-                        key={actionId}
-                        className="hover:bg-slate-50/70 transition-colors"
-                      >
-                        <td className="px-5 py-3.5">
-                          <p className="font-semibold text-slate-900">{app.student_name}</p>
-                          <p className="text-[11px] text-slate-400">{app.student_branch} • Sec {app.student_section}</p>
-                          <Link href={`/admin/students/${app.student_id}`} className="mt-1 inline-block text-[10px] font-semibold text-red-700 hover:underline">View call history</Link>
-                        </td>
-                        <td className="px-3 py-3.5 font-mono text-slate-600 font-medium">{app.student_roll_number}</td>
-                        <td className="px-3 py-3.5">
-                          <p className="font-semibold text-slate-800">{app.company_name}</p>
-                          <p className="text-[11px] text-slate-400">{app.drive_name}</p>
-                        </td>
-                        <td className="px-3 py-3.5">
-                          <StatusBadge status={app.status} size="sm" />
-                        </td>
-                        <td className="px-3 py-3.5">
-                          {app.application_deadline && (
-                            <div>
-                              <p className="text-slate-700 font-medium">{formatDate(app.application_deadline)}</p>
-                              <p className={`text-[10px] font-semibold ${daysLeft <= 3 ? "text-rose-600" : daysLeft <= 7 ? "text-amber-600" : "text-slate-400"}`}>
-                                {daysLeft > 0 ? `${daysLeft}d left` : "Passed"}
-                              </p>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-3 py-3.5 text-slate-600 font-medium">
-                          {app.follow_up_count}x
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => void handleMarkFollowUp(app)}
-                              disabled={isSending || isCalling}
-                              className="px-2.5 py-1 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1 shadow-2xs disabled:opacity-50"
-                            >
-                              {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageSquare className="w-3 h-3" />}
-                              {isSending ? "Sending…" : "Send reminder"}
-                            </button>
-                            <button
-                              onClick={() => void handleCall(app)}
-                              disabled={isSending || isCalling || !app.student_phone}
-                              title={app.student_phone ? "Start an OmniDim call for this student and drive" : "Add a phone number to the student profile first"}
-                              className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                            >{isCalling ? <Loader2 className="h-3 w-3 animate-spin" /> : <Phone className="h-3 w-3" />}{isCalling ? "Calling…" : "Call"}</button>
-                            <Link
-                              href={`/admin/students/${app.student_id}`}
-                              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                              title="View Student"
-                            ><Eye className="w-4 h-4" /></Link>
+            <div className="space-y-4 bg-slate-50/50 p-4">
+              {companyGroups.map((company) => (
+                <details key={company.id} open className="group/company overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-indigo-500">
+                    <div className="flex items-center gap-3">
+                      <Building2 className="h-5 w-5 shrink-0 text-slate-500" />
+                      <div><h2 className="text-sm font-bold text-slate-900">{company.name}</h2><p className="mt-0.5 text-xs text-slate-500">{new Set(company.candidates.map((candidate) => candidate.student_id)).size} students · {company.candidates.length} follow-ups · {company.roles.size} {company.roles.size === 1 ? "role" : "roles"}</p></div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700">{company.candidates.filter((candidate) => candidate.status === "Not Responded").length} not responded</span>
+                      <ChevronDown className="h-4 w-4 text-slate-500 transition-transform group-open/company:rotate-180" />
+                    </div>
+                  </summary>
+                  <div className="space-y-3 border-t border-slate-100 p-3">
+                    {Array.from(company.roles.entries()).map(([roleKey, role]) => (
+                      <details key={roleKey} open className="group/role overflow-hidden rounded-lg border border-slate-100">
+                        <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 bg-slate-50 px-4 py-3 focus-visible:outline-2 focus-visible:outline-indigo-500">
+                          <div><h3 className="text-xs font-bold text-slate-800">{role.name}</h3><p className="mt-0.5 text-[11px] text-slate-500">{role.candidates.length} follow-ups{new Set(role.candidates.map((candidate) => candidate.drive_id)).size > 1 && ` · ${new Set(role.candidates.map((candidate) => candidate.drive_id)).size} drives`}</p></div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {ALL_STATUSES.map((status) => {
+                              const count = role.candidates.filter((candidate) => candidate.status === status).length;
+                              return count > 0 ? <span key={status} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-600">{status}: <b>{count}</b></span> : null;
+                            })}
+                            <ChevronDown className="h-4 w-4 text-slate-500 transition-transform group-open/role:rotate-180" />
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        </summary>
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="bg-slate-50/70 border-b border-slate-100">
+                                <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Student</th>
+                                <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-3">Roll No.</th>
+                                <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-3">Status</th>
+                                <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-3">Deadline</th>
+                                <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-3">Attempts</th>
+                                <th className="text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-xs">
+                              {role.candidates.map((app) => {
+                                const daysLeft = app.application_deadline ? getDaysUntilDeadline(app.application_deadline) : 0;
+                                const actionId = `${app.drive_id}:${app.student_id}`;
+                                const isSending = pendingFollowUpId === actionId;
+                                const isCalling = pendingCallId === actionId;
+
+                                return (
+                                  <tr
+                                    key={actionId}
+                                    className="hover:bg-slate-50/70 transition-colors"
+                                  >
+                                    <td className="px-5 py-3.5">
+                                      <p className="font-semibold text-slate-900">{app.student_name}</p>
+                                      <p className="text-[11px] text-slate-400">{app.student_branch} • Sec {app.student_section}</p>
+                                      <Link href={`/admin/students/${app.student_id}`} className="mt-1 inline-block text-[10px] font-semibold text-red-700 hover:underline">View call history</Link>
+                                    </td>
+                                    <td className="px-3 py-3.5 font-mono text-slate-600 font-medium">{app.student_roll_number}</td>
+                                    <td className="px-3 py-3.5">
+                                      <StatusBadge status={app.status} size="sm" />
+                                    </td>
+                                    <td className="px-3 py-3.5">
+                                      {app.application_deadline && (
+                                        <div>
+                                          <p className="text-slate-700 font-medium">{formatDate(app.application_deadline)}</p>
+                                          <p className={`text-[10px] font-semibold ${daysLeft <= 3 ? "text-rose-600" : daysLeft <= 7 ? "text-amber-600" : "text-slate-400"}`}>
+                                            {daysLeft > 0 ? `${daysLeft}d left` : "Passed"}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="px-3 py-3.5 text-slate-600 font-medium">
+                                      {app.follow_up_count}x
+                                    </td>
+                                    <td className="px-5 py-3.5 text-right">
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <button
+                                          onClick={() => void handleMarkFollowUp(app)}
+                                          disabled={isSending || isCalling}
+                                          className="px-2.5 py-1 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1 shadow-2xs disabled:opacity-50"
+                                        >
+                                          {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageSquare className="w-3 h-3" />}
+                                          {isSending ? "Sending…" : "Send reminder"}
+                                        </button>
+                                        <button
+                                          onClick={() => void handleCall(app)}
+                                          disabled={isSending || isCalling || !app.student_phone}
+                                          title={app.student_phone ? "Start an OmniDim call for this student and drive" : "Add a phone number to the student profile first"}
+                                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >{isCalling ? <Loader2 className="h-3 w-3 animate-spin" /> : <Phone className="h-3 w-3" />}{isCalling ? "Calling…" : "Call"}</button>
+                                        <Link
+                                          href={`/admin/students/${app.student_id}`}
+                                          className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                                          title="View Student"
+                                        ><Eye className="w-4 h-4" /></Link>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                </details>
+              ))}
             </div>
           )}
         </div>

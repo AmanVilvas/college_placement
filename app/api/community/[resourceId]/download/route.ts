@@ -14,6 +14,7 @@ export async function GET(_request: Request, context: { params: Promise<{ resour
     const rows = await developmentDatabaseQuery<{ title: string; file_name: string; content_type: string; file_size: number; file_data: Buffer }>(
       `select r.title, r.file_name, r.content_type, r.file_size, r.file_data
        from placement_private.company_community_resources r
+       join public.companies c on c.id=r.company_id and c.institution_id=r.institution_id and c.campus_id=r.campus_id and c.archived=false
        where r.id=$1 and r.institution_id=$2 and r.campus_id=$3 and r.file_data is not null
          and (
            $4::boolean
@@ -26,10 +27,7 @@ export async function GET(_request: Request, context: { params: Promise<{ resour
                    select 1 from public.drives d where d.id=r.drive_id and d.company_id=r.company_id
                      and d.institution_id=$2 and d.campus_id=$3 and ${eligibleDriveSql}
                  ))
-                 or (r.drive_id is null and exists(
-                   select 1 from public.drives d where d.company_id=r.company_id
-                     and d.institution_id=$2 and d.campus_id=$3 and ${eligibleDriveSql}
-                 ))
+                 or r.drive_id is null
                )
            )
          ) limit 1`,

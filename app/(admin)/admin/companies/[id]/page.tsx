@@ -158,18 +158,6 @@ export default function AdminCompanyDetailPage() {
               </div>
             </div>
 
-            <div className="flex sm:flex-col gap-2 border-t sm:border-t-0 sm:border-l border-slate-100 pt-3 sm:pt-0 sm:pl-6 text-xs">
-              <div>
-                <span className="text-slate-400">Total Drives:</span>
-                <p className="text-base font-bold text-slate-800">{drivesList.length}</p>
-              </div>
-              <div>
-                <span className="text-slate-400">Registered Candidates:</span>
-                <p className="text-base font-bold text-red-600">
-                  {companyApplications.length}
-                </p>
-              </div>
-            </div>
           </div>
         </div>
 

@@ -38,13 +38,13 @@ export default function AdminCommunityPage() {
       if (input) input.value = "";
       await refetch();
       window.dispatchEvent(new Event("community-resource-published"));
-      setMessage("Resource posted in the company chat for eligible students.");
+      setMessage("Resource posted in the company chat for the selected audience.");
     } catch (cause) { setMessageError(true); setMessage(cause instanceof Error ? cause.message : "Could not publish this resource."); }
     finally { setSaving(false); }
   }
 
   return <div>
-    <AdminHeader title="Company Community" subtitle="Share notes and files with students who qualify for each company’s open drives" />
+    <AdminHeader title="Company Community" subtitle="Share campus company updates and resources for eligible drive groups" />
     <div className="mx-auto max-w-6xl space-y-6 p-5 sm:p-7">
       {message && <p role={messageError ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-sm ${messageError ? "border-rose-200 bg-rose-50 text-rose-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>{message}</p>}
       {error && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Could not load community data: {error}</p>}
@@ -53,7 +53,7 @@ export default function AdminCommunityPage() {
         <div className="flex items-center gap-3"><div className="rounded-xl bg-indigo-50 p-2.5 text-indigo-700"><UploadCloud className="h-5 w-5"/></div><div><h2 className="font-bold text-slate-900">Post a resource in the chat</h2><p className="mt-0.5 text-xs text-slate-500">Notes and attachments appear in the same company conversation as messages and polls.</p></div></div>
         <form onSubmit={publish} className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="text-xs font-semibold text-slate-700">Company<select required value={companyId} onChange={(event) => { setCompanyId(event.target.value); setDriveId(""); }} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal"><option value="">Choose a company</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
-          <label className="text-xs font-semibold text-slate-700">Audience group<select value={driveId} onChange={(event) => setDriveId(event.target.value)} disabled={!selectedCompany} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal"><option value="">All eligible students for this company</option>{(selectedCompany?.drives ?? []).map((drive) => <option key={drive.id} value={drive.id}>{drive.role_title}</option>)}</select></label>
+          <label className="text-xs font-semibold text-slate-700">Audience group<select value={driveId} onChange={(event) => setDriveId(event.target.value)} disabled={!selectedCompany} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal"><option value="">All campus students</option>{(selectedCompany?.drives ?? []).map((drive) => <option key={drive.id} value={drive.id}>{drive.role_title}</option>)}</select></label>
           <label className="text-xs font-semibold text-slate-700 sm:col-span-2">Title<input required minLength={3} maxLength={180} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Interview preparation notes" className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-normal"/></label>
           <label className="text-xs font-semibold text-slate-700 sm:col-span-2">Note or instructions<textarea rows={5} maxLength={30000} value={body} onChange={(event) => setBody(event.target.value)} placeholder="Share preparation details, reminders, or other company-specific information." className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-normal"/></label>
           <label className="text-xs font-semibold text-slate-700 sm:col-span-2">Attach a file (optional)<input id="community-file" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg,.pdf,.txt,.doc,.docx,.ppt,.pptx" onChange={(event) => { const selected = event.target.files?.[0] ?? null; setFile(selected); }} className="mt-1.5 block w-full rounded-xl border border-slate-200 p-2 text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-indigo-700"/><span className="mt-1 block text-[10px] font-normal text-slate-500">PNG, JPG, PDF, Word, PowerPoint, or TXT · maximum 4 MB{file ? ` · Selected: ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)` : ""}</span>{file && file.size > maxFileSize && <span role="alert" className="mt-1 block text-[10px] text-rose-700">This file is larger than 4 MB.</span>}</label>

@@ -22,9 +22,7 @@ export async function POST(request: Request, context: RouteContext<"/api/communi
        join public.companies c on c.id=m.company_id and c.archived=false
        where m.id=$1 and m.institution_id=$2 and m.campus_id=$3 and m.message_type='poll'
        and (m.drive_id is null or exists(select 1 from public.drives d cross join public.student_profiles s
-          where s.id=$4 and d.id=m.drive_id and d.company_id=m.company_id and d.institution_id=$2 and d.campus_id=$3 and ${eligibleDriveSql}))
-       and (m.drive_id is not null or exists(select 1 from public.drives d cross join public.student_profiles s
-          where s.id=$4 and d.company_id=m.company_id and d.institution_id=$2 and d.campus_id=$3 and ${eligibleDriveSql}))`,
+          where s.id=$4 and d.id=m.drive_id and d.company_id=m.company_id and d.institution_id=$2 and d.campus_id=$3 and ${eligibleDriveSql}))`,
       [messageId, profile.institution_id, profile.campus_id, student.id],
     );
     const poll = polls[0];

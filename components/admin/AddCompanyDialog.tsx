@@ -133,6 +133,10 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    if (processingLogo || !logoUrl) {
+      setLogoError(processingLogo ? "Please wait for the logo to finish processing." : "Upload a company logo before adding the company.");
+      return;
+    }
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -236,7 +240,7 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
                 </div>
               </div>
               <div>
-                <span className="mb-1.5 block text-xs font-semibold text-slate-700">Company logo <span className="font-normal text-slate-400">(optional)</span></span>
+                <span className="mb-1.5 block text-xs font-semibold text-slate-700">Company logo <span className="text-rose-500">* (required)</span></span>
                 <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
                   <CompanyLogo name={name || "Company"} logoColor={color} logoUrl={logoUrl || undefined} size="md" />
                   <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-red-300 hover:text-red-700">
@@ -248,7 +252,7 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
                   <span className="text-[11px] text-slate-500">JPG, PNG, or WebP · up to 5 MB</span>
                 </div>
                 {logoError && <p role="alert" className="mt-1.5 text-xs text-red-700">{logoError}</p>}
-                <p className="mt-1 text-[11px] leading-5 text-slate-500">Images are resized before saving. Without a logo, the company name initials are shown.</p>
+                <p className="mt-1 text-[11px] leading-5 text-slate-500">Upload a company logo to enable Add Company. Images are resized before saving.</p>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">Brand Color</label>
@@ -388,7 +392,7 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
               className="px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-200/60 rounded-xl transition-colors">
               Cancel
             </button>
-            <button type="submit" disabled={isSubmitting || !name.trim()}
+            <button type="submit" disabled={isSubmitting || processingLogo || !name.trim() || !logoUrl}
               className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm shadow-red-200/60 transition-colors flex items-center gap-2">
               {isSubmitting
                 ? (<><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>)
