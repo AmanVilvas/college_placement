@@ -45,7 +45,7 @@ export default function MyApplicationsPage() {
       companyLogoUrl: liveDrive?.companies?.logo_url,
       status: row.status as Application["status"],
       appliedAt: row.applied_at,
-      confirmedAt: confirmation?.confirmedAt || row.updated_at,
+      confirmedAt: confirmation?.confirmedAt,
       confirmationData: confirmation,
       followUpCount: 0,
       updatedAt: row.updated_at || row.applied_at || "",
@@ -126,7 +126,8 @@ export default function MyApplicationsPage() {
                   </div>
                   <div className="space-y-3">
                     {statusGroups.placed.map((app) => (
-                      <article key={app.id} className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-white/90 p-3">
+                      <article key={app.id} className="rounded-xl border border-emerald-100 bg-white/90 p-4">
+                        <div className="flex items-center gap-3">
                         <CompanyLogo name={app.companyName} logoColor="#059669" logoUrl={app.companyLogoUrl} size="sm" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-bold text-slate-900">{app.companyName}</p>
@@ -134,6 +135,28 @@ export default function MyApplicationsPage() {
                           {app.updatedAt && <p className="mt-0.5 text-[10px] text-slate-400">Updated {formatDate(app.updatedAt)}</p>}
                         </div>
                         <StatusBadge status={app.status} />
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-emerald-100 pt-3 text-xs text-slate-500">
+                          {app.appliedAt && <p>Applied on {formatDate(app.appliedAt)}</p>}
+                          {app.confirmedAt && <p>Confirmed on {formatDate(app.confirmedAt)}</p>}
+                        </div>
+                        <h3 className="mb-3 mt-4 text-xs font-semibold text-slate-700">Placement journey</h3>
+                        <div className="overflow-x-auto pb-2">
+                          <ol aria-label={`Placement journey for ${app.companyName}`} className="flex min-w-max items-center">
+                            {APPLICATION_JOURNEY.filter((step) => !["Eligible", "Interested"].includes(step)).map((step, index, steps) => (
+                              <li key={step} aria-current={step === "Placed" ? "step" : undefined} className="flex items-center">
+                                <div className="flex flex-col items-center">
+                                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600">
+                                    <CheckCircle aria-hidden="true" className="h-4 w-4 text-white" />
+                                  </div>
+                                  <span className="mt-1 w-16 text-center text-[10px] font-semibold text-emerald-700">{step}</span>
+                                </div>
+                                {index < steps.length - 1 && <div aria-hidden="true" className="mb-4 h-0.5 w-8 bg-emerald-400" />}
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                        <p className="mt-2 text-[10px] text-slate-500">Current status: Placed. Progress is based on the placement office’s latest status.</p>
                       </article>
                     ))}
                   </div>

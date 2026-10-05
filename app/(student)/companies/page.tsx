@@ -338,9 +338,7 @@ export default function StudentCompaniesPage() {
               </p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs text-emerald-400 font-semibold">Live Database</span>
-              <button onClick={refetch} disabled={loading}
+              <button onClick={refetch} disabled={loading} aria-label="Refresh companies"
                 className="ml-2 p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>

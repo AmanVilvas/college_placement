@@ -112,7 +112,7 @@ export default function StudentPortfolioPage() {
 
       <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="text-lg font-semibold tracking-tight text-slate-950">Uploaded resume</h2><p className="mt-1 text-xs text-slate-500">Loaded securely from your Supabase profile.</p></div>
+          <div><h2 className="text-lg font-semibold tracking-tight text-slate-950">Uploaded resume</h2><p className="mt-1 text-xs text-slate-500">Your saved resume.</p></div>
           {previewUrl && <button type="button" onClick={downloadResume} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50"><Download size={14}/>Download</button>}
         </div>
         {!student.resumeFileName ? <div className="mt-5 flex items-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-5"><FileText className="h-5 w-5 text-slate-400"/><div><p className="text-sm font-medium text-slate-700">No resume uploaded yet</p><Link href="/profile" className="mt-1 inline-block text-xs font-semibold text-red-700 hover:underline">Upload a resume in your profile →</Link></div></div>

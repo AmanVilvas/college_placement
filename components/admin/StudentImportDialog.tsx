@@ -327,7 +327,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
                     No forceful blocking — you can write the details now or edit later:
                   </p>
                   <p className="text-amber-800 mt-0.5">
-                    Blank optional fields are saved as <strong>NA</strong> and flagged for review. Roll number and student name are still required. Missing details are shown below with{" "}
+                    Missing text fields are saved as <strong>NA</strong> and numeric fields as <strong>null</strong>, and flagged for review. Roll number is required. Missing details are shown below with{" "}
                     <span className="font-bold underline decoration-amber-500">this has problem with details</span>.
                     You can click <strong>&quot;Write Details&quot;</strong> to fill them right away, or simply import all students now and edit them anytime later in the Student Directory.
                   </p>
@@ -423,7 +423,7 @@ export function StudentImportDialog({ isOpen, onClose, onSuccess }: Props) {
                                 Write / Edit details for student #{vr.rowIndex}
                               </p>
                               <span className="text-[11px] text-slate-400">
-                                Roll number and name are required. Other fields can be updated later.
+                                Roll number is required. Missing names are saved as NA; other fields can be updated later.
                               </span>
                             </div>
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError, ApiError, currentProfile, databaseRequest, developmentDatabaseQuery } from "@/lib/server/supabase";
-import { deliverBatch } from "@/lib/server/message-delivery";
+import { sendBulkEmails } from "@/lib/server/bulkEmail";
+import { eligibleDriveSql } from "@/lib/server/companyCommunity";
 
 const tables = new Set([
   "institutions", "campuses", "profiles", "student_profiles", "companies", "recruiter_contacts",
@@ -597,14 +598,11 @@ export async function POST(request: Request, context: { params: Promise<{ resour
           `select s.id, s.user_id, s.full_name, coalesce(nullif(s.email, ''), p.email) as email
              from public.student_profiles s
              left join public.profiles p on p.id = s.user_id
+             join public.drives d on d.id=$3 and d.institution_id=s.institution_id and d.campus_id=s.campus_id
             where s.institution_id = $1 and s.campus_id = $2
-              and (cardinality($3::text[]) = 0 or upper(trim(s.department)) = any($3::text[]))
-              and ($4::numeric is null or s.cgpa >= $4)
-              and ($5::integer is null or s.backlogs <= $5)
+              and ${eligibleDriveSql}
             order by s.full_name`,
-          [profile.institution_id, profile.campus_id, branches.map((branch) => branch.toUpperCase()),
-            minCGPA !== null && Number.isFinite(minCGPA) ? minCGPA : null,
-            maxBacklogs !== null && Number.isInteger(maxBacklogs) && maxBacklogs >= 0 ? maxBacklogs : null],
+          [profile.institution_id, profile.campus_id, createdDrive.id],
         );
         eligibleCount = students.length;
         const company = companiesForCampus[0];
@@ -627,19 +625,16 @@ export async function POST(request: Request, context: { params: Promise<{ resour
         if (students.length) {
           await developmentDatabaseQuery(
             `insert into public.notifications (institution_id, campus_id, user_id, student_id, title, message, category, metadata)
-             select $1, $2, r.user_id, r.student_id, $3, $4, 'Placement', $5::jsonb
+             select $1, $2, r.user_id, r.student_id, $3, $4, 'New Drive', $5::jsonb
                from jsonb_to_recordset($6::jsonb) as r(student_id uuid, user_id uuid)`,
             [profile.institution_id, profile.campus_id, title,
               `A new ${createdDrive.role_title} opportunity from ${company.name} is open. Check the details and deadline.`,
-              JSON.stringify({ drive_id: createdDrive.id, company_id: companyId }),
+              JSON.stringify({ driveId: createdDrive.id, companyId, companyName: company.name }),
               JSON.stringify(students.map((student) => ({ student_id: student.id, user_id: student.user_id })))],
           );
-          const delivery = await deliverBatch(
-            students.filter((student) => Boolean(student.email)).map((student) => ({ name: student.full_name, email: student.email })),
-            { email: true, whatsapp: false }, title, studentMessage,
-          );
+          const delivery = await sendBulkEmails(students.map((student) => ({ email: student.email, subject: title, message: studentMessage })));
           emailSent = delivery.emailSent;
-          emailFailures = delivery.failures.length + students.filter((student) => !student.email).length;
+          emailFailures = delivery.failures.length;
         }
       }
       return Response.json({ data: rows, eligibleCount, emailSent, emailFailures }, { status: 201 });

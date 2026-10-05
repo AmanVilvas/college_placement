@@ -193,7 +193,7 @@ export function AddCompanyDialog({ isOpen, onClose, onAdd }: AddCompanyDialogPro
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900">Add Recruiting Company</h2>
-              <p className="text-xs text-slate-500">All details visible to students immediately</p>
+              <p className="text-xs text-slate-500">Visible immediately. Add an open placement drive to email eligible students.</p>
             </div>
           </div>
           <button

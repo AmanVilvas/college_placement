@@ -4,12 +4,13 @@
  *
  * Highly flexible schema:
  * - Works with complete sheets (15+ columns) OR simple lists with just 4-5 columns.
- * - Never invents roll numbers or student names. Required identity fields must be
- *   supplied or corrected in the preview before rows can be imported.
+ * - Requires the official roll number. Missing names use an explicit NA placeholder.
  * - Flags other incomplete details so staff can review them before import.
  */
 
-export type ParsedRow = Record<string, string | number | boolean | string[] | undefined>;
+import { isMissingStudentValue } from "@/lib/studentImportValues";
+
+export type ParsedRow = Record<string, string | number | boolean | string[] | null | undefined>;
 
 export interface RowWarning {
   field: string;
@@ -172,7 +173,7 @@ function transformRows(rawRows: Record<string, string | number>[]): ParsedRow[] 
       const extraDetails: Record<string, string> = {};
 
       for (const [origKey, val] of Object.entries(row)) {
-        const strVal = String(val ?? "").trim();
+        const strVal = isMissingStudentValue(val) ? "" : String(val).trim();
         const mappedKey = headerMap[origKey];
         if (mappedKey) {
           if (mappedKey === "s_no") {
@@ -215,7 +216,7 @@ function transformRows(rawRows: Record<string, string | number>[]): ParsedRow[] 
  * If any field does not look right, flags it with:
  * "This has problem with details: <field> - <reason>"
  *
- * Roll number and full name are required. Other incomplete details are warnings.
+ * Roll number is required. Other incomplete details are warnings.
  */
 export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
   return rows.map((row, i) => {
@@ -225,7 +226,7 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
 
     // 1. Roll number check
     const rollStr = String(row.roll_number ?? "").trim();
-    if (!rollStr) {
+    if (isMissingStudentValue(rollStr)) {
       errors.push({
         field: "roll_number",
         message: "Roll number is required. Enter the official student roll number before importing.",
@@ -234,10 +235,10 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
 
     // 2. Name check
     const nameStr = String(row.full_name ?? "").trim();
-    if (!nameStr) {
-      errors.push({
+    if (isMissingStudentValue(nameStr)) {
+      warnings.push({
         field: "full_name",
-        message: "Student name is required before importing.",
+        message: "Student name is missing and will be saved as NA. Update it later.",
       });
     }
 
@@ -274,7 +275,7 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
       ["skills", row.skills, "Skills"],
     ];
     for (const [field, value, label] of missingFields) {
-      if (value === undefined || value === null || String(value).trim() === "") {
+      if (isMissingStudentValue(value)) {
         warnings.push({ field, message: `This has problem with details: ${label} is missing (can fill now or edit later)` });
       }
     }
@@ -344,8 +345,11 @@ export function prepareForImport(validatedRows: ValidatedRow[]): ParsedRow[] {
     // Keep missing values visible as a consistent placeholder in imported
     // student records. Numeric columns remain null in the database and render
     // as "NA" in the roster; the warnings above retain the missing-field signal.
-    for (const field of ["email", "phone", "department", "section", "skills"]) {
-      if (row[field] === undefined || row[field] === null || String(row[field]).trim() === "") row[field] = "NA";
+    for (const field of ["full_name", "email", "phone", "department", "section", "skills"]) {
+      if (isMissingStudentValue(row[field])) row[field] = "NA";
+    }
+    for (const field of ["year_of_study", "graduation_year", "cgpa", "tenth_percent", "twelfth_percent", "backlogs"]) {
+      if (isMissingStudentValue(row[field])) row[field] = null;
     }
 
     return row;

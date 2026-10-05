@@ -169,20 +169,15 @@ export default function AdminDrivesPage() {
       />
 
       <div className="p-6 space-y-6">
-        {/* Database connection status */}
-        <div className="flex items-center justify-between">
-          <div className={`inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full border shadow-2xs ${drivesError ? "text-rose-700 bg-rose-50 border-rose-200" : "text-emerald-700 bg-emerald-50 border-emerald-200"}`}>
-            <span className={`w-2 h-2 rounded-full ${drivesError ? "bg-rose-500" : drivesLoading ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} />
-            {drivesError ? "Database unavailable" : drivesLoading ? "Connecting to placement database…" : "Connected to placement database"}
-          </div>
+        <div className="flex justify-end">
           <button
             onClick={refetchDrives}
             disabled={drivesLoading}
             className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-slate-100"
-            title="Sync with database"
+            title="Refresh drives"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Sync</span>
+            <span>Refresh</span>
           </button>
         </div>
 

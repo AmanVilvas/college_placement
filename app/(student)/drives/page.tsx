@@ -53,20 +53,15 @@ export default function DrivesPage() {
     <div>
       <StudentHeader title="Upcoming Drives" subtitle="All scheduled placement drives for your campus" />
       <div className="p-6 space-y-4">
-        {/* Connection indicator */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-              Live Database Connected
-            </span>
-            <span className="text-slate-500 text-xs">· {allDrives.length} drive{allDrives.length !== 1 ? "s" : ""} active</span>
+            <span className="text-slate-500 text-xs">{allDrives.length} drive{allDrives.length !== 1 ? "s" : ""} active</span>
           </div>
           <button
             onClick={refetch}
             disabled={loading}
             className="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
-            title="Sync with database"
+            title="Refresh drives"
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>

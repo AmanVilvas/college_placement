@@ -67,6 +67,7 @@ export default function FollowUpsPage() {
   const [pendingFollowUpId, setPendingFollowUpId] = useState<string | null>(null);
   const [pendingCallId, setPendingCallId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState("");
+  const [sendingBulk, setSendingBulk] = useState(false);
 
   const followUpApps = rows ?? [];
 
@@ -81,6 +82,33 @@ export default function FollowUpsPage() {
   const companies = Array.from(new Set(followUpApps.map((a) => a.company_name)));
   const branches = Array.from(new Set(followUpApps.map((application) => application.student_branch).filter(Boolean)));
   const sections = ["A", "B", "C", "D"];
+
+  async function sendBulkReminders(candidates: ApiFollowUp[]) {
+    if (sendingBulk) return;
+    const pending = candidates.filter((candidate) => ["Eligible", "Interested", "Applied", "Not Responded"].includes(candidate.status));
+    const groups = new Map<string, Set<string>>();
+    pending.forEach((candidate) => {
+      const students = groups.get(candidate.drive_id) ?? new Set<string>();
+      students.add(candidate.student_id); groups.set(candidate.drive_id, students);
+    });
+    setSendingBulk(true); setActionMessage("");
+    let sent = 0, failed = 0, audience = 0;
+    try {
+      for (const [driveId, studentSet] of groups) {
+        const students = [...studentSet];
+        for (let offset = 0; offset < students.length; offset += 500) {
+          const result = await apiMutate<{ audience: number; delivery: { emailSent: number; failures: { error: string }[] } }>("POST", "followups", {
+            driveId, studentIds: students.slice(offset, offset + 500), channels: { email: true, whatsapp: false },
+          });
+          audience += result.audience; sent += result.delivery.emailSent; failed += result.delivery.failures.length;
+          setActionMessage(`Bulk reminders: ${sent} emails accepted, ${failed} failed, ${audience} students processed.${result.delivery.failures[0] ? ` Error: ${result.delivery.failures[0].error}` : ""}`);
+        }
+      }
+      await refetch();
+    } catch (error) {
+      setActionMessage(`Bulk reminders stopped after ${sent} emails accepted and ${failed} failed. ${error instanceof Error ? error.message : "Could not send reminders."}`);
+    } finally { setSendingBulk(false); }
+  }
 
   const handleMarkFollowUp = async (candidate: ApiFollowUp) => {
     const actionId = `${candidate.drive_id}:${candidate.student_id}`;
@@ -279,6 +307,7 @@ export default function FollowUpsPage() {
                     </div>
                   </summary>
                   <div className="space-y-3 border-t border-slate-100 p-3">
+                    <button type="button" disabled={sendingBulk || Boolean(pendingFollowUpId) || !company.candidates.some((candidate) => ["Eligible", "Interested", "Applied", "Not Responded"].includes(candidate.status))} onClick={() => void sendBulkReminders(company.candidates)} className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{sendingBulk ? "Sending reminders…" : "Email eligible students awaiting confirmation"}</button>
                     {Array.from(company.roles.entries()).map(([roleKey, role]) => (
                       <details key={roleKey} open className="group/role overflow-hidden rounded-lg border border-slate-100">
                         <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 bg-slate-50 px-4 py-3 focus-visible:outline-2 focus-visible:outline-indigo-500">
@@ -291,6 +320,9 @@ export default function FollowUpsPage() {
                             <ChevronDown className="h-4 w-4 text-slate-500 transition-transform group-open/role:rotate-180" />
                           </div>
                         </summary>
+                        <div className="border-t border-slate-100 px-4 py-2">
+                          <button type="button" disabled={sendingBulk || Boolean(pendingFollowUpId) || !role.candidates.some((candidate) => ["Eligible", "Interested", "Applied", "Not Responded"].includes(candidate.status))} onClick={() => void sendBulkReminders(role.candidates)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-50">Email pending students for this role</button>
+                        </div>
                         <div className="overflow-x-auto">
                           <table className="w-full">
                             <thead>
@@ -341,7 +373,7 @@ export default function FollowUpsPage() {
                                       <div className="flex items-center justify-end gap-1.5">
                                         <button
                                           onClick={() => void handleMarkFollowUp(app)}
-                                          disabled={isSending || isCalling}
+                                          disabled={isSending || isCalling || sendingBulk}
                                           className="px-2.5 py-1 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1 shadow-2xs disabled:opacity-50"
                                         >
                                           {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageSquare className="w-3 h-3" />}

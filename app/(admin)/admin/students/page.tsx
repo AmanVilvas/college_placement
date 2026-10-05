@@ -81,7 +81,7 @@ function normalise(s: ApiStudentProfile, applications: ApiStudentApplication[] =
     branch: s.department || "NA",
     section: s.section || "NA",
     cgpa: Number.isFinite(parsedCgpa) ? parsedCgpa : 0,
-    backlogs: missingBacklogs ? null : s.backlogs ?? 0,
+    backlogs: missingBacklogs ? null : s.backlogs ?? null,
     graduationYear: s.graduation_year,
     placementStatus: applications.some((application) => ["Selected", "Placed"].includes(application.status))
       ? "Placed" as const : applications.length ? "In Process" as const : "Unplaced" as const,
@@ -181,20 +181,15 @@ export default function AdminStudentsDirectoryPage() {
           </div>
         )}
 
-        {/* Live Supabase status pill */}
-        <div className="flex items-center justify-between">
-          <div className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 shadow-2xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Connected to Supabase (Live Database 24/7)
-          </div>
+        <div className="flex justify-end">
           <button
             onClick={refetch}
             disabled={loading}
             className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-slate-100"
-            title="Refresh database records"
+            title="Refresh students"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Sync</span>
+            <span>Refresh</span>
           </button>
         </div>
 

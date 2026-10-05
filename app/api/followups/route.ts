@@ -1,17 +1,19 @@
 import { z } from "zod";
 import { ApiError, apiError, currentProfile, developmentDatabaseQuery } from "@/lib/server/supabase";
 import { deliverBatch } from "@/lib/server/message-delivery";
+import { sendBulkEmails } from "@/lib/server/bulkEmail";
 
 export const runtime = "nodejs";
 
 const staffRoles = new Set(["super_admin", "college_admin", "tpo", "coordinator", "admin-local"]);
 const followUpSchema = z.object({
   driveId: z.string().uuid(),
-  studentId: z.string().uuid(),
+  studentId: z.string().uuid().optional(),
+  studentIds: z.array(z.string().uuid()).min(1).max(500).optional(),
   channels: z.object({ email: z.boolean().default(true), whatsapp: z.boolean().default(false) })
     .default({ email: true, whatsapp: false })
     .refine((channels) => channels.email || channels.whatsapp, "Choose at least one channel."),
-});
+}).refine((input) => Boolean(input.studentId) !== Boolean(input.studentIds), "Choose one student or a bulk student list.");
 
 async function requirePlacementOffice() {
   const { profile } = await currentProfile();
@@ -36,16 +38,17 @@ export async function GET() {
          left join public.applications a on a.drive_id = d.id and a.student_id = s.id
          left join public.follow_up_events f on f.drive_id = d.id and f.student_id = s.id
          where d.institution_id = $1 and d.campus_id = $2
+           and c.archived=false
            and d.status in ('Open', 'Closing Soon')
            and (d.application_deadline is null or d.application_deadline >= current_date)
            and case when jsonb_typeof(d.eligibility->'branches') = 'array'
              then jsonb_array_length(d.eligibility->'branches') = 0 or d.eligibility->'branches' ? s.department
              else true end
            and coalesce(nullif(d.eligibility->>'minCGPA', '')::numeric, 0) <= coalesce(s.cgpa, 0)
-           and coalesce(nullif(d.eligibility->>'maxBacklogs', '')::integer, 2147483647) >= coalesce(s.backlogs, 0)
+           and coalesce(nullif(d.eligibility->>'maxBacklogs', '')::integer, 2147483647) >= coalesce(s.backlogs, 2147483647)
          group by s.id, d.id, c.id, c.name, a.id, s.phone
        )
-       select * from candidates where application_id is null or status in ('Applied','Not Responded','Shortlisted','Assessment','Interview')
+       select * from candidates where application_id is null or status in ('Eligible','Interested','Applied','Not Responded','Shortlisted','Assessment','Interview')
        order by case status when 'Not Responded' then 0 when 'Shortlisted' then 1 else 2 end, application_deadline asc nulls last, student_name asc
        limit 2000`,
       [profile.institution_id, profile.campus_id],
@@ -63,7 +66,7 @@ export async function POST(request: Request) {
       drive_id: string; drive_name: string; company_name: string; application_id: string | null; official_apply_link: string | null;
     }>(
       `select s.id as student_id, s.user_id, s.full_name as student_name,
-              coalesce(s.email, p.email) as email, coalesce(s.phone, '') as phone,
+              coalesce(nullif(trim(s.email), ''), p.email) as email, coalesce(s.phone, '') as phone,
               d.id as drive_id, d.role_title as drive_name, c.name as company_name,
               a.id as application_id, d.official_apply_link
        from public.student_profiles s
@@ -71,17 +74,43 @@ export async function POST(request: Request) {
        join public.companies c on c.id = d.company_id
        left join public.profiles p on p.id = s.user_id
        left join public.applications a on a.drive_id = d.id and a.student_id = s.id
-       where s.id = $2 and s.institution_id = $3 and s.campus_id = $4
+       where ($2::uuid is null or s.id = $2) and s.institution_id = $3 and s.campus_id = $4
+         and c.archived=false
+         and ($5::uuid[] is null or (s.id=any($5::uuid[]) and (a.id is null or a.status in ('Eligible','Interested','Applied','Not Responded'))))
          and d.status in ('Open', 'Closing Soon')
          and (d.application_deadline is null or d.application_deadline >= current_date)
          and case when jsonb_typeof(d.eligibility->'branches') = 'array'
            then jsonb_array_length(d.eligibility->'branches') = 0 or d.eligibility->'branches' ? s.department
            else true end
          and coalesce(nullif(d.eligibility->>'minCGPA', '')::numeric, 0) <= coalesce(s.cgpa, 0)
-         and coalesce(nullif(d.eligibility->>'maxBacklogs', '')::integer, 2147483647) >= coalesce(s.backlogs, 0)
-       limit 1`,
-      [input.driveId, input.studentId, profile.institution_id, profile.campus_id],
+         and coalesce(nullif(d.eligibility->>'maxBacklogs', '')::integer, 2147483647) >= coalesce(s.backlogs, 2147483647)
+       order by s.id`,
+      [input.driveId, input.studentId ?? null, profile.institution_id, profile.campus_id, input.studentIds ?? null],
     );
+    if (input.studentIds) {
+      if (input.channels.whatsapp) throw new ApiError(400, "Bulk registration reminders currently support email only.");
+      if (!recipients.length) throw new ApiError(404, "No eligible students still need to confirm for this drive.");
+      const reminders = recipients.map((recipient) => ({ ...recipient,
+        title: `Registration reminder: ${recipient.company_name} — ${recipient.drive_name}`,
+        message: `Hello ${recipient.student_name},\n\nYou are eligible for ${recipient.drive_name} at ${recipient.company_name}. Please complete the application and confirm your participation.\n\n${recipient.official_apply_link ? `Official application: ${recipient.official_apply_link}\n` : ""}Confirm in the student portal: ${new URL(`/companies?drive=${recipient.drive_id}`, request.url)}\n\nPlacement Office`,
+      }));
+      const result = await sendBulkEmails(reminders.map((item) => ({ email: item.email, subject: item.title, message: item.message })));
+      const records = reminders.map((item) => ({ ...item, delivery: {
+        emailSent: item.email && result.accepted.has(item.email.trim()) ? 1 : 0, whatsappSent: 0,
+        failures: item.email ? result.failures.filter((failure) => failure.recipient === item.email) : [{ channel: "email", error: "Student has no email address." }],
+      } }));
+      await developmentDatabaseQuery(
+        `with recipients as (select * from jsonb_to_recordset($3::jsonb) as r(student_id uuid,user_id uuid,drive_id uuid,application_id uuid,title text,message text,company_name text,delivery jsonb)),
+         saved as (insert into public.follow_up_events(institution_id,campus_id,drive_id,student_id,application_id,channels,delivery_result)
+           select $1,$2,drive_id,student_id,application_id,'{"email":true,"whatsapp":false}'::jsonb,delivery from recipients returning id,student_id,drive_id)
+         insert into public.notifications(institution_id,campus_id,user_id,student_id,title,message,category,metadata)
+           select $1,$2,r.user_id,r.student_id,r.title,r.message,'Placement update',
+             jsonb_build_object('driveId',r.drive_id,'companyName',r.company_name,'followUpId',saved.id,'delivery',r.delivery)
+           from recipients r join saved on saved.student_id=r.student_id and saved.drive_id=r.drive_id`,
+        [profile.institution_id, profile.campus_id, JSON.stringify(records)],
+      );
+      return Response.json({ data: { audience: recipients.length, delivery: { emailSent: result.emailSent, whatsappSent: 0, failures: result.failures }, inAppNotificationCreated: true } }, { status: 201 });
+    }
     const recipient = recipients[0];
     if (!recipient) throw new ApiError(404, "Eligible student or active drive was not found for this campus.");
     const title = `Placement reminder: ${recipient.company_name} — ${recipient.drive_name}`;

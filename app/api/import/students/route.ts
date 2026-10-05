@@ -1,20 +1,26 @@
 import { z } from "zod";
 import { apiError, ApiError, currentProfile, databaseRequest, developmentDatabaseQuery } from "@/lib/server/supabase";
+import { isMissingStudentValue } from "@/lib/studentImportValues";
+
+const optionalNumber = (integer = false) => z.preprocess(
+  (value) => isMissingStudentValue(value) ? null : value,
+  (integer ? z.coerce.number().int() : z.coerce.number()).nullable(),
+);
 
 // Flexible row schema: accommodates 4-5 columns or 20+ columns without crashing
 const rowSchema = z.object({
-  roll_number: z.string().trim().min(1),
-  full_name: z.string().trim().min(1),
+  roll_number: z.string().trim().min(1).refine((value) => !isMissingStudentValue(value), "Official roll number is required."),
+  full_name: z.preprocess((value) => isMissingStudentValue(value) ? "NA" : value, z.string().trim().min(1)),
   email: z.string().optional().nullable().or(z.literal("")),
   department: z.string().trim().optional().nullable(),
   section: z.string().optional().nullable(),
-  year_of_study: z.coerce.number().int().optional().nullable(),
-  graduation_year: z.coerce.number().int().optional().nullable(),
+  year_of_study: optionalNumber(true),
+  graduation_year: optionalNumber(true),
   phone: z.string().optional().nullable(),
-  cgpa: z.coerce.number().optional().nullable(),
-  tenth_percent: z.coerce.number().optional().nullable(),
-  twelfth_percent: z.coerce.number().optional().nullable(),
-  backlogs: z.coerce.number().int().optional().nullable(),
+  cgpa: optionalNumber(),
+  tenth_percent: optionalNumber(),
+  twelfth_percent: optionalNumber(),
+  backlogs: optionalNumber(true),
   skills: z.string().optional().nullable(), // comma-separated
   extra_fields: z.string().optional().nullable(),
   has_problem_with_details: z.boolean().optional(),
@@ -67,7 +73,7 @@ export async function POST(request: Request) {
                updated_at=now()`,
             [institution_id, campus_id, row.roll_number, row.full_name, email, department, section,
               row.year_of_study ?? null, row.graduation_year ?? null, phone, cgpa, tenth, twelfth,
-              row.backlogs ?? 0, skills, JSON.stringify(profileData)],
+              row.backlogs ?? null, skills, JSON.stringify(profileData)],
           );
           results.push({ roll_number: row.roll_number, status: "upserted" });
         } catch (error) {
@@ -114,9 +120,7 @@ export async function POST(request: Request) {
           cgpa: safeCgpa,
           tenth_percent: safeTenth,
           twelfth_percent: safeTwelfth,
-          // The database requires an integer here. Preserve the missing value
-          // explicitly in detail_problems; the roster renders that case as NA.
-          backlogs: row.backlogs ?? 0,
+          backlogs: row.backlogs ?? null,
           skills: skillsArray,
         };
 
